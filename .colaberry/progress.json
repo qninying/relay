@@ -5,11 +5,11 @@
     "stories_total": 13,
     "stories_verified": 0,
     "stories_submitted": 0,
-    "stories_in_progress": 0,
-    "stories_not_started": 13,
+    "stories_in_progress": 13,
+    "stories_not_started": 0,
     "criteria_total": 41,
     "criteria_passed": 0,
-    "points_awarded": 0
+    "points_awarded": 1610
   },
   "stories": [
     {
@@ -42,7 +42,23 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 5,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given the Command Center, when it is opened, then every tab is reachable and every card drills down one level.",
+          "Given sample mode, when any tab is shown, then the sample data is visibly labelled as sample.",
+          "Given the Command Center, when any tab renders, then .colaberry/plan.json and .colaberry/progress.json are both committed in this repo and every tab reads its content from them at runtime rather than from hard-coded values.",
+          "Given the Command Center, when any tab is shown, then .colaberry/manifest.json is committed in this repo and every tab shows how old that data is and warns when the age exceeds a week.",
+          "Trust — no tab shows a number, a connection or a result the project has not actually produced."
+        ]
+      }
     },
     {
       "id": "STORY-001",
@@ -66,7 +82,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given a job in the queue, When it is processed, Then it is logged with a correlation ID",
+          "Given a re-delivered job, When it is processed, Then it does not double-process",
+          "Trust: All job processing is logged with correlation IDs"
+        ]
+      }
     },
     {
       "id": "STORY-002",
@@ -90,7 +120,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given a job is submitted, When it is processed, Then it is logged with its correlation ID",
+          "Given a job is processed, When it is low-confidence, Then it is logged with its correlation ID",
+          "Trust: Given a job is processed, Then its processing is logged for traceability"
+        ]
+      }
     },
     {
       "id": "STORY-003",
@@ -114,7 +158,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given an API call is made, When the circuit breaker is closed, Then the call proceeds",
+          "Given an API call is made, When the circuit breaker is open, Then the call is blocked",
+          "Trust: Given output is generated, Then it is validated against the JSON schema before persisting"
+        ]
+      }
     },
     {
       "id": "STORY-004",
@@ -138,7 +196,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given a job, When retries are exhausted, Then it is moved to the dead-letter queue",
+          "Given a dead-letter queue, When a job is triaged, Then it is logged with a reason",
+          "Trust: Dead-letter queue entries are logged with correlation IDs"
+        ]
+      }
     },
     {
       "id": "STORY-005",
@@ -162,7 +234,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given the system, When jobs are processed, Then SLO metrics are updated live",
+          "Given the SLO dashboard, When an error occurs, Then it is reflected in the error budget",
+          "Trust: SLO metrics are logged with correlation IDs"
+        ]
+      }
     },
     {
       "id": "STORY-006",
@@ -186,7 +272,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given job load increases, When workers are needed, Then they are autoscaled",
+          "Given job load decreases, When workers are not needed, Then they are scaled down",
+          "Trust: Autoscaling events are logged with correlation IDs"
+        ]
+      }
     },
     {
       "id": "STORY-007",
@@ -210,7 +310,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given a low-confidence job, When it is processed, Then it is routed to the review queue",
+          "Given a review queue, When a job is added, Then it is logged with a correlation ID",
+          "Trust: Low-confidence jobs are logged with correlation IDs"
+        ]
+      }
     },
     {
       "id": "STORY-008",
@@ -234,7 +348,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given a DLQ entry, When it is triaged, Then the retry policy is updated",
+          "Given the retry policy, When a job fails, Then it follows the updated policy",
+          "Trust: DLQ triage updates are logged with correlation IDs"
+        ]
+      }
     },
     {
       "id": "STORY-009",
@@ -258,7 +386,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given a chaos drill, When a worker is killed mid-job, Then the system recovers without data loss",
+          "Given a queue backlog, When it is forced, Then the system processes jobs without duplicates",
+          "Trust: Chaos drill events are logged with correlation IDs"
+        ]
+      }
     },
     {
       "id": "STORY-010",
@@ -282,7 +424,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given the system is deployed, When it is running, Then job success rate and latency are tracked",
+          "Given the system is deployed, When a status request is made, Then a plain-language status view is provided",
+          "Trust: Given the system is running, Then monitoring data is logged for auditability"
+        ]
+      }
     },
     {
       "id": "STORY-011",
@@ -306,7 +462,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 129,
+        "outstanding": [
+          "Given a classification task, When it is executed, Then it uses the fixed taxonomy",
+          "Given a classification task, When the taxonomy is unavailable, Then the task fails gracefully",
+          "Trust: Given a classification task, Then its execution is logged with the taxonomy version"
+        ]
+      }
     },
     {
       "id": "STORY-012",
@@ -330,7 +500,21 @@
       "tests_added": [],
       "notes": null,
       "updated_at": null,
-      "verification": null
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": 62,
+        "outstanding": [
+          "Given a summary is generated, When source data is available, Then it is grounded in that data",
+          "Given a summary is generated, When source data is missing, Then the summary generation fails",
+          "Trust: Given a summary is generated, Then its source data is logged for verification"
+        ]
+      }
     }
   ]
 }

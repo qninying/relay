@@ -15,59 +15,16 @@ displays is read out of your own plan.
 
 ## If you are Claude Code opening this file cold
 
-Everything you need is here, including the criteria themselves. **The platform has not
-confirmed it can write to this repo**, so do not assume anything put
-`.colaberry/progress.json` there for you — check, and if it is missing, create it.
+Everything you need is here. The full build brief is below, and your
+acceptance criteria are **already seeded** in `.colaberry/progress.json` under
+`STORY-000` with `"passed": false` — the platform has push access to
+this repo and writes that file on every sync.
 
-**Do not retype the criteria — copy them.** If `.colaberry/progress.json` is already in
-your repo with a `STORY-000` entry, leave its `text` values exactly as
-they are and flip `passed` to `true` only on the lines that are genuinely true. Otherwise
-use the block below **verbatim**: it is generated from the same constant the platform
-grades against, so a character-for-character copy matches and anything you reword does not.
-
-If the file exists but has no `STORY-000` entry, paste only the object
-from the `stories` array into the `stories` array already there. **Do not overwrite a
-progress file that has your other stories in it.**
-
-```json
-{
-  "schema_version": 2,
-  "stories": [
-    {
-      "id": "STORY-000",
-      "criteria": [
-        {
-          "text": "Given the Command Center, when it is opened, then every tab is reachable and every card drills down one level.",
-          "passed": false
-        },
-        {
-          "text": "Given sample mode, when any tab is shown, then the sample data is visibly labelled as sample.",
-          "passed": false
-        },
-        {
-          "text": "Given the Command Center, when any tab renders, then .colaberry/plan.json and .colaberry/progress.json are both committed in this repo and every tab reads its content from them at runtime rather than from hard-coded values.",
-          "passed": false
-        },
-        {
-          "text": "Given the Command Center, when any tab is shown, then .colaberry/manifest.json is committed in this repo and every tab shows how old that data is and warns when the age exceeds a week.",
-          "passed": false
-        },
-        {
-          "text": "Trust — no tab shows a number, a connection or a result the project has not actually produced.",
-          "passed": false
-        }
-      ]
-    }
-  ]
-}
-```
-
-Every line starts `false`, which is correct rather than unfinished. Flip one to `true`
-only when it is genuinely true in this repo today. Step 3 below has the exact procedure.
-
-**A paraphrase is not a claim.** The platform matches your `text` against the plan's
-wording and ignores anything that does not match, so a criterion you rewrote in your own
-words counts for nothing however true it is — and until now it did that silently.
+**Do not retype the criteria.** Find the story by its `id`, flip `passed` to `true`
+on each line that is genuinely true, and leave the rest `false`. Retyping is how the
+text drifts — a rewritten dash or a changed full stop makes a claim the platform
+cannot match, and the story stays unverified with your work already done. Step 3
+below has the exact procedure.
 
 **If this repo already has some of the Command Center in it, do not start over.**
 Step 2a below takes stock before anything is written and Step 2b repairs in place;

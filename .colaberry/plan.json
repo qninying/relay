@@ -250,9 +250,9 @@
         "STORY-001",
         "STORY-002"
       ],
-      "starts_on": null,
-      "ends_on": null,
-      "is_demo_target": false
+      "starts_on": "2026-09-24",
+      "ends_on": "2026-09-25",
+      "is_demo_target": true
     },
     {
       "key": "r1",
@@ -265,8 +265,8 @@
         "STORY-003",
         "STORY-004"
       ],
-      "starts_on": null,
-      "ends_on": null,
+      "starts_on": "2026-09-25",
+      "ends_on": "2026-09-27",
       "is_demo_target": false
     },
     {
@@ -280,8 +280,8 @@
         "STORY-005",
         "STORY-006"
       ],
-      "starts_on": null,
-      "ends_on": null,
+      "starts_on": "2026-09-27",
+      "ends_on": "2026-09-28",
       "is_demo_target": false
     },
     {
@@ -297,8 +297,8 @@
         "STORY-011",
         "STORY-012"
       ],
-      "starts_on": null,
-      "ends_on": null,
+      "starts_on": "2026-09-28",
+      "ends_on": "2026-09-30",
       "is_demo_target": false
     },
     {
@@ -312,8 +312,8 @@
         "STORY-009",
         "STORY-010"
       ],
-      "starts_on": null,
-      "ends_on": null,
+      "starts_on": "2026-09-30",
+      "ends_on": "2026-10-01",
       "is_demo_target": false
     }
   ],
@@ -340,8 +340,8 @@
         "Logging fails"
       ],
       "task_guidance": "Implement job processing logic with idempotency checks and structured logging.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-24",
+      "due_baseline_on": "2026-09-24"
     },
     {
       "id": "STORY-002",
@@ -365,8 +365,8 @@
         "Logging service unavailable"
       ],
       "task_guidance": "Use the existing job queue to process jobs and ensure logging includes correlation IDs for traceability.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-25",
+      "due_baseline_on": "2026-09-25"
     },
     {
       "id": "STORY-003",
@@ -390,8 +390,8 @@
         "API call times out"
       ],
       "task_guidance": "Integrate a circuit breaker pattern for API calls and validate outputs against the JSON schema before persisting.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-25",
+      "due_baseline_on": "2026-09-25"
     },
     {
       "id": "STORY-004",
@@ -416,8 +416,8 @@
         "Triage runbook is incomplete"
       ],
       "task_guidance": "Set up dead-letter queue and create triage runbook for failed jobs.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-27",
+      "due_baseline_on": "2026-09-27"
     },
     {
       "id": "STORY-005",
@@ -443,8 +443,8 @@
         "Error budget is not tracked"
       ],
       "task_guidance": "Implement SLO dashboard with live metrics display.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-27",
+      "due_baseline_on": "2026-09-27"
     },
     {
       "id": "STORY-006",
@@ -469,8 +469,8 @@
         "Autoscaling fails to log"
       ],
       "task_guidance": "Configure autoscaling for worker processes based on job queue depth.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-28",
+      "due_baseline_on": "2026-09-28"
     },
     {
       "id": "STORY-007",
@@ -495,8 +495,8 @@
         "Low-confidence job is auto-resolved"
       ],
       "task_guidance": "Implement routing logic for low-confidence jobs to review queue.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-28",
+      "due_baseline_on": "2026-09-28"
     },
     {
       "id": "STORY-008",
@@ -521,8 +521,8 @@
         "Triage updates are not logged"
       ],
       "task_guidance": "Analyze DLQ entries and update retry policy based on triage results.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-28",
+      "due_baseline_on": "2026-09-28"
     },
     {
       "id": "STORY-009",
@@ -547,8 +547,8 @@
         "Duplicate processing occurs"
       ],
       "task_guidance": "Plan and execute chaos-engineering drills to test system resilience.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-30",
+      "due_baseline_on": "2026-09-30"
     },
     {
       "id": "STORY-010",
@@ -575,8 +575,8 @@
         "Status view not updated"
       ],
       "task_guidance": "Deploy the system to the production host and ensure monitoring tracks job success rate, latency, and provides a status view.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-10-01",
+      "due_baseline_on": "2026-10-01"
     },
     {
       "id": "STORY-011",
@@ -601,8 +601,8 @@
         "Logging service unavailable"
       ],
       "task_guidance": "Ensure classification tasks reference the fixed taxonomy and log the taxonomy version used.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-29",
+      "due_baseline_on": "2026-09-29"
     },
     {
       "id": "STORY-012",
@@ -627,19 +627,63 @@
         "Logging service unavailable"
       ],
       "task_guidance": "Ensure summaries are generated using the source data and log the data used for verification.",
-      "due_on": null,
-      "due_baseline_on": null
+      "due_on": "2026-09-30",
+      "due_baseline_on": "2026-09-30"
     }
   ],
   "agents": [],
   "project": {
     "name": "Relay: AI Agent Job Orchestration Platform",
     "descriptor": "A distributed job-orchestration system for batch enrichment pipelines, ensuring reliability engineering at scale.",
-    "repo_url": null,
+    "repo_url": "https://github.com/qninying/relay",
     "plan_version": 1,
     "plan_sha256": "38587c81fcb83f39e5e17611ee5221332c9553321c26b917559279474c149fea"
   },
-  "schedule": null,
+  "schedule": {
+    "build_start": "2026-09-24",
+    "build_end": "2026-10-01",
+    "demo_day": "2026-10-08",
+    "build_weeks": 1,
+    "demo_release_key": "r0",
+    "roadmap_release_keys": [
+      "r1",
+      "r2",
+      "r3",
+      "r4"
+    ],
+    "prep": [
+      {
+        "key": "PREP-1",
+        "title": "Write the demo narrative: the problem, the one moment, the guardrail",
+        "due_on": "2026-10-02"
+      },
+      {
+        "key": "PREP-2",
+        "title": "Record a first run-through and watch it back",
+        "due_on": "2026-10-03"
+      },
+      {
+        "key": "PREP-3",
+        "title": "Build the slides — what it does, who for, the number it moves",
+        "due_on": "2026-10-05"
+      },
+      {
+        "key": "PREP-4",
+        "title": "Rehearse with one other person and take their notes",
+        "due_on": "2026-10-06"
+      },
+      {
+        "key": "PREP-5",
+        "title": "Record the final demo video",
+        "due_on": "2026-10-07"
+      },
+      {
+        "key": "PREP-6",
+        "title": "Present at Demo Day",
+        "due_on": "2026-10-08"
+      }
+    ]
+  },
   "derived": {
     "measures": [],
     "guardrails": [],
