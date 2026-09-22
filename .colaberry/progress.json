@@ -3,13 +3,13 @@
   "project": "Relay: AI Agent Job Orchestration Platform",
   "totals": {
     "stories_total": 13,
-    "stories_verified": 0,
+    "stories_verified": 1,
     "stories_submitted": 0,
-    "stories_in_progress": 13,
+    "stories_in_progress": 12,
     "stories_not_started": 0,
     "criteria_total": 41,
-    "criteria_passed": 0,
-    "points_awarded": 1610
+    "criteria_passed": 5,
+    "points_awarded": 1672
   },
   "stories": [
     {
@@ -34,7 +34,7 @@
           "passed": true
         },
         {
-          "text": "Trust \u2014 no tab shows a number, a connection or a result the project has not actually produced.",
+          "text": "Trust — no tab shows a number, a connection or a result the project has not actually produced.",
           "passed": true
         }
       ],
@@ -55,21 +55,15 @@
       "notes": "Verified manually in-browser per the story's own Step 2/3 instructions (no automated test suite specified for the Command Center): all 9 tabs reachable, every card/bar drills down one level (Overview summary cards, role cards, system cards, release Gantt bars, and story rows all link to a real detail view), Sample vs Real mode verified on Overview with the sample badge visible only in Sample mode, plan/progress/manifest read at runtime via fetch (no hard-coded plan content), and the Data-as-of stamp renders on every page. Fixed a real timezone bug found during review: date-only fields (due_on, build_start, etc.) were rendering one day early in negative-UTC-offset zones because toLocaleDateString had no timeZone option; added timeZone: \"UTC\" to formatDateOrUnset and formatDataAsOf. Guardrails and Outcomes tabs show honest empty states (no SAFE-typed requirement, no measures defined yet) per the brief's own instruction to raise that gap rather than invent content.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 5,
         "criteria_total": 5,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 129,
-        "outstanding": [
-          "Given the Command Center, when it is opened, then every tab is reachable and every card drills down one level.",
-          "Given sample mode, when any tab is shown, then the sample data is visibly labelled as sample.",
-          "Given the Command Center, when any tab renders, then .colaberry/plan.json and .colaberry/progress.json are both committed in this repo and every tab reads its content from them at runtime rather than from hard-coded values.",
-          "Given the Command Center, when any tab is shown, then .colaberry/manifest.json is committed in this repo and every tab shows how old that data is and warns when the age exceeds a week.",
-          "Trust \u2014 no tab shows a number, a connection or a result the project has not actually produced."
-        ]
+        "verified_at": "2026-09-22T15:14:41.906Z",
+        "commit_sha": "970d6d329252a317031941e9e818a6a8ff580552",
+        "commit_url": "https://github.com/qninying/relay/commit/970d6d329252a317031941e9e818a6a8ff580552",
+        "commit_at": "2026-09-22T15:14:30Z",
+        "points_awarded": 191,
+        "outstanding": []
       }
     },
     {
