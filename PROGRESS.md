@@ -31,3 +31,10 @@ Tracks implementation work on Relay, session by session.
   - What changed: One repo-verifiable acceptance check per requirement (REQ-001..018) — a grep pattern, file existence, passing test, or live URL — instead of prose describing intended behavior. All 18 are currently unchecked; REQ-012 and REQ-016 note that their guardrail logic exists and passes tests but isn't yet called from a pipeline, so the check still fails honestly.
   - Verification: `docs/ACCEPTANCE_CHECKS.md` present in the repo with 18 checklist items, one per requirement in `docs/REQUIREMENTS.md`.
   - Notes: Not a `.colaberry/progress.json` criterion source — this is a working document for tracking real completion as stories get built, not something the platform reads.
+
+- [x] Scaffold the MCP server over stdio (platform Core Build task, fulfils R2)
+  - Date: 2026-09-22
+  - Session: CC-20260921-r1ay
+  - What changed: New `mcp-server/` module (TypeScript, `@modelcontextprotocol/sdk`, matching CoreOps's stdio-entry/factory split). `mcpServerFactory.ts` registers one read-only resource, `relay://jobs/needs-review` (fixture jobs in `needs_review` state — the third outcome distinct from success/dead-letter, per REQ-010 — with an honest `source: "fixture"` field since no real queue exists yet), and one tool stub, `submit_batch_job` (always responds `stub: true, accepted: false` rather than faking success). `index.ts` connects over stdio. Added `.mcp.json` at repo root so Claude Code registers it locally, same pattern as CoreOps's.
+  - Verification: `npx tsc --noEmit` clean; ran the real server via a throwaway MCP client script over stdio — connected, `listResources`/`listTools`/`readResource`/`callTool` all returned the expected shapes (script removed after, not committed); separately verified interactively via `npx @modelcontextprotocol/inspector`, connected in the browser, resource and tool both exercised live.
+  - Notes: Stub only — `submit_batch_job` does not enqueue anything yet, matching the task's own scope ("one tool stub"). Not wired to the guardrails module yet either.
