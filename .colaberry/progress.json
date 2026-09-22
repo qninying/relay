@@ -3,13 +3,13 @@
   "project": "Relay: AI Agent Job Orchestration Platform",
   "totals": {
     "stories_total": 13,
-    "stories_verified": 3,
+    "stories_verified": 6,
     "stories_submitted": 0,
-    "stories_in_progress": 10,
+    "stories_in_progress": 7,
     "stories_not_started": 0,
     "criteria_total": 41,
-    "criteria_passed": 11,
-    "points_awarded": 1796
+    "criteria_passed": 20,
+    "points_awarded": 1982
   },
   "stories": [
     {
@@ -34,7 +34,7 @@
           "passed": true
         },
         {
-          "text": "Trust \u2014 no tab shows a number, a connection or a result the project has not actually produced.",
+          "text": "Trust — no tab shows a number, a connection or a result the project has not actually produced.",
           "passed": true
         }
       ],
@@ -195,19 +195,15 @@
       "notes": "circuitBreaker.ts/withReliability.ts ported from CoreOps's proven mcp-server/src/reliability/ pattern (closed/open/half-open state machine, sliding failure window, timeout+backoff retry). persistOutput.ts gives the existing guardrails/outputContractGuardrail.ts its first real caller - validates before persisting (REQ-012), refuses to persist on any violation. callExternalApiAndPersist composes both: closed breaker lets the call proceed (criterion 1), open breaker blocks it fail-fast without invoking the call (criterion 2), and whatever the call returns is validated before persisting (criterion 3/trust) - tested as one composed flow, not just each piece alone. 48/48 tests passing, tsc --noEmit clean. src/tsconfig.json's rootDir changed to '..' with guardrails/outputContractGuardrail.ts added to include, matching the exact cross-package relative-import pattern CoreOps's mcp-server already uses for its own guardrails. Limitation: never exercised against a real external API, only a mock apiCall in tests - no real integration target exists in this project yet.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 129,
-        "outstanding": [
-          "Given an API call is made, When the circuit breaker is closed, Then the call proceeds",
-          "Given an API call is made, When the circuit breaker is open, Then the call is blocked",
-          "Trust: Given output is generated, Then it is validated against the JSON schema before persisting"
-        ]
+        "verified_at": "2026-09-22T16:04:32.702Z",
+        "commit_sha": "1f7d6af3e3dbb65472db676f49e629b8d42f0f01",
+        "commit_url": "https://github.com/qninying/relay/commit/1f7d6af3e3dbb65472db676f49e629b8d42f0f01",
+        "commit_at": "2026-09-22T16:04:21Z",
+        "points_awarded": 191,
+        "outstanding": []
       }
     },
     {
@@ -242,19 +238,15 @@
       "notes": "dlq.ts reuses RedisStreamQueue (STORY-002) pointed at a separate DLQ stream - moveToDeadLetterQueue() preserves the original job payload alongside the failure reason and timestamp; triageNextDeadLetterEntry() reads it back and logs job_triaged with the reason. Wired into callExternalApiAndPersist: a job whose retries are genuinely exhausted (UpstreamCallFailedError) moves to the DLQ (criterion 1); a circuit-open rejection deliberately does NOT, since the call was never attempted - verified both directions against the real Redis DLQ stream. docs/runbooks/DLQ_TRIAGE.md written: what lands here and why, how to check it, a decision table by failure reason, when to escalate rather than guess, and an honest list of what it doesn't cover yet (no automated retry, no alerting, no UI). 55/55 tests passing, tsc --noEmit clean, STORY-003's original tests unaffected (dlqOptions is optional, backward compatible).",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 129,
-        "outstanding": [
-          "Given a job, When retries are exhausted, Then it is moved to the dead-letter queue",
-          "Given a dead-letter queue, When a job is triaged, Then it is logged with a reason",
-          "Trust: Dead-letter queue entries are logged with correlation IDs"
-        ]
+        "verified_at": "2026-09-22T16:38:24.898Z",
+        "commit_sha": "0d894ef1437fd3bf637516ed3f32e8563c1bddb7",
+        "commit_url": "https://github.com/qninying/relay/commit/0d894ef1437fd3bf637516ed3f32e8563c1bddb7",
+        "commit_at": "2026-09-22T16:38:14Z",
+        "points_awarded": 191,
+        "outstanding": []
       }
     },
     {
@@ -292,19 +284,15 @@
       "notes": "MetricsCollector tracks success rate, p95 latency, and a real error budget over a rolling count-based window (REQ-006) - wired into processJob.ts so it updates from real job outcomes (criterion 1), with an immediate reflection of any failure in the error budget (criterion 2), every recorded metric logged with its correlation ID (trust). dashboardServer.ts + dashboard.html serve a live dashboard (REQ-018) verified running in the browser, not just by test - watched it update live from simulated job activity via runDashboard.ts, including a real DLQ depth reading from Redis and correctly flipping to BREACHED. Rebuilt once after direct user feedback the first pass 'looks cheap': restructured into KPI summary / operational detail / needs-attention layers with real states (healthy/warning/critical/no-data/offline), a real recent-activity sparkline (not fabricated 24h/7d ranges, since nothing persists metrics), and reusable card-rendering functions. Two real bugs found and fixed in review: a raw negative error-budget percentage (-173%) displayed instead of clamping to 0%, and a missing <meta viewport> tag that silently broke all responsive behavior on mobile (verified via actual window.innerWidth, not just a screenshot). 76/76 tests passing, tsc --noEmit clean, zero browser console errors at desktop/tablet/mobile.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 129,
-        "outstanding": [
-          "Given the system, When jobs are processed, Then SLO metrics are updated live",
-          "Given the SLO dashboard, When an error occurs, Then it is reflected in the error budget",
-          "Trust: SLO metrics are logged with correlation IDs"
-        ]
+        "verified_at": "2026-09-22T16:56:47.018Z",
+        "commit_sha": "2a0ade7d03aae3a3ec6b53588590aa7158039d5b",
+        "commit_url": "https://github.com/qninying/relay/commit/2a0ade7d03aae3a3ec6b53588590aa7158039d5b",
+        "commit_at": "2026-09-22T16:56:36Z",
+        "points_awarded": 191,
+        "outstanding": []
       }
     },
     {
