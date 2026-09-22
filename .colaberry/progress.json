@@ -140,12 +140,14 @@
         "src/package.json",
         "src/queue.ts",
         "src/queue.test.ts",
-        "src/processJob.ts"
+        "src/processJob.ts",
+        "src/endToEnd.test.ts"
       ],
       "tests_added": [
-        "src/queue.test.ts"
+        "src/queue.test.ts",
+        "src/endToEnd.test.ts"
       ],
-      "notes": "RedisStreamQueue wraps real Redis Streams (XADD/XGROUP/XREADGROUP/XACK) via ioredis, run locally through docker-compose.yml - no AWS credentials available so SQS was not an option, Redis Streams satisfies REQ-001's either/or. dequeueOne() logs job_dequeued with the correlation ID (criterion 1) and, when job.confidence is below a placeholder threshold, job_low_confidence with the same correlation ID (criterion 2, REQ-011). Tests run against the actual Redis container, not mocked, including a real broken-connection failure path. Found and fixed two real bugs in review: ioredis emits its own console.error on an unhandled connection error (was doubling the failure-path test's assertion until an error listener was attached), and a default `import Redis from \"ioredis\"` fails strict tsc under Node16 module resolution even though tsx/vitest accepted it silently - switched to the named import. 22/22 tests passing, tsc --noEmit clean.",
+      "notes": "RedisStreamQueue wraps real Redis Streams (XADD/XGROUP/XREADGROUP/XACK) via ioredis, run locally through docker-compose.yml - no AWS credentials available so SQS was not an option, Redis Streams satisfies REQ-001's either/or. dequeueOne() logs job_dequeued with the correlation ID (criterion 1) and, when job.confidence is below a placeholder threshold, job_low_confidence with the same correlation ID (criterion 2, REQ-011). Tests run against the actual Redis container, not mocked, including a real broken-connection failure path. Found and fixed two real bugs in review: ioredis emits its own console.error on an unhandled connection error (was doubling the failure-path test's assertion until an error listener was attached), and a default `import Redis from \"ioredis\"` fails strict tsc under Node16 module resolution even though tsx/vitest accepted it silently - switched to the named import. 22/22 tests passing, tsc --noEmit clean. Follow-up: added src/endToEnd.test.ts, composing queue.ts with STORY-001's processJob.ts against the real Redis container - proves enqueue -> dequeue -> idempotency check -> log works as one flow, including a re-delivered job producing exactly one job_processed and one job_skipped_duplicate with a consistent correlation ID. 25/25 tests passing now.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",
