@@ -1,0 +1,667 @@
+{
+  "schema_version": 2,
+  "project_name": "Relay: AI Agent Job Orchestration Platform",
+  "descriptor": "A distributed job-orchestration system for batch enrichment pipelines, ensuring reliability engineering at scale.",
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "kind": "CONSTRAINT",
+      "cluster": "Job Queue",
+      "priority": "must",
+      "statement": "The system must use Redis Streams or SQS for the durable job queue.",
+      "from_dimensions": [
+        "systems"
+      ],
+      "fulfilled_by": [
+        "STORY-002"
+      ]
+    },
+    {
+      "id": "REQ-002",
+      "kind": "FUNC",
+      "cluster": "Job Processing",
+      "priority": "must",
+      "statement": "The system must ensure idempotent job processing to prevent double-processing of re-delivered jobs.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-001"
+      ]
+    },
+    {
+      "id": "REQ-003",
+      "kind": "FUNC",
+      "cluster": "External API Handling",
+      "priority": "must",
+      "statement": "The system must implement a circuit breaker in front of every external API call with a documented fallback or fail-fast path.",
+      "from_dimensions": [
+        "systems"
+      ],
+      "fulfilled_by": [
+        "STORY-003"
+      ]
+    },
+    {
+      "id": "REQ-004",
+      "kind": "FUNC",
+      "cluster": "Job Queue",
+      "priority": "must",
+      "statement": "The system must have a dead-letter queue for jobs that exhaust retries, with a triage runbook.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-004"
+      ]
+    },
+    {
+      "id": "REQ-005",
+      "kind": "FUNC",
+      "cluster": "Logging",
+      "priority": "must",
+      "statement": "The system must provide structured JSON logging with correlation IDs threaded through queue, worker, and external call.",
+      "from_dimensions": [
+        "systems"
+      ],
+      "fulfilled_by": [
+        "STORY-001"
+      ]
+    },
+    {
+      "id": "REQ-006",
+      "kind": "FUNC",
+      "cluster": "Monitoring",
+      "priority": "must",
+      "statement": "The system must display a live SLO dashboard with a real error budget, showing metrics like job success rate and p95 job latency.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-005"
+      ]
+    },
+    {
+      "id": "REQ-007",
+      "kind": "FUNC",
+      "cluster": "Scalability",
+      "priority": "must",
+      "statement": "The system must support multiple autoscaling worker processes.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-006"
+      ]
+    },
+    {
+      "id": "REQ-008",
+      "kind": "FUNC",
+      "cluster": "Reliability",
+      "priority": "must",
+      "statement": "The system must have a documented chaos-engineering drill to test system resilience.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-009"
+      ]
+    },
+    {
+      "id": "REQ-009",
+      "kind": "CONSTRAINT",
+      "cluster": "Deployment",
+      "priority": "must",
+      "statement": "The system must be deployed to a real production host.",
+      "from_dimensions": [
+        "constraints"
+      ],
+      "fulfilled_by": [
+        "STORY-010"
+      ]
+    },
+    {
+      "id": "REQ-010",
+      "kind": "FUNC",
+      "cluster": "Job Processing",
+      "priority": "must",
+      "statement": "The system must route low-confidence classifications to a review queue instead of the dead-letter queue.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-007"
+      ]
+    },
+    {
+      "id": "REQ-011",
+      "kind": "FUNC",
+      "cluster": "Logging",
+      "priority": "must",
+      "statement": "The system must log low-confidence classifications with their correlation ID for traceability.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-002"
+      ]
+    },
+    {
+      "id": "REQ-012",
+      "kind": "FUNC",
+      "cluster": "Data Validation",
+      "priority": "must",
+      "statement": "The system must validate output against a declared JSON schema before persisting it.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-003"
+      ]
+    },
+    {
+      "id": "REQ-013",
+      "kind": "FUNC",
+      "cluster": "User Interface",
+      "priority": "must",
+      "statement": "The system must provide a plain-language status view for RevOps and research-ops analysts.",
+      "from_dimensions": [
+        "actors"
+      ],
+      "fulfilled_by": [
+        "STORY-010"
+      ]
+    },
+    {
+      "id": "REQ-014",
+      "kind": "FUNC",
+      "cluster": "Monitoring",
+      "priority": "must",
+      "statement": "The system must track job success rate, p95 job latency, DLQ rate, circuit breaker trip frequency, and queue depth over time.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-010"
+      ]
+    },
+    {
+      "id": "REQ-015",
+      "kind": "FUNC",
+      "cluster": "Job Processing",
+      "priority": "must",
+      "statement": "The system must codify classified failure modes into the retry policy to automate DLQ triage.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-008"
+      ]
+    },
+    {
+      "id": "REQ-016",
+      "kind": "FUNC",
+      "cluster": "Data Validation",
+      "priority": "must",
+      "statement": "The system must ensure that summaries are grounded strictly in the source data pulled for each item.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-012"
+      ]
+    },
+    {
+      "id": "REQ-017",
+      "kind": "FUNC",
+      "cluster": "Job Processing",
+      "priority": "must",
+      "statement": "The system must ensure that classification runs against a fixed, pre-defined taxonomy for the domain.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-011"
+      ]
+    },
+    {
+      "id": "REQ-018",
+      "kind": "FUNC",
+      "cluster": "Monitoring",
+      "priority": "must",
+      "statement": "The system must provide an SLO dashboard as the ongoing check for system performance.",
+      "from_dimensions": [
+        "desired_outcome"
+      ],
+      "fulfilled_by": [
+        "STORY-005"
+      ]
+    }
+  ],
+  "releases": [
+    {
+      "key": "r0",
+      "demo": "Show a job processed end-to-end with idempotency and logging in place.",
+      "goal": "Establish the core job queue and processing reliability.",
+      "name": "Initial Skeleton",
+      "week_end": 1,
+      "week_start": 0,
+      "story_ids": [
+        "STORY-001",
+        "STORY-002"
+      ],
+      "starts_on": null,
+      "ends_on": null,
+      "is_demo_target": false
+    },
+    {
+      "key": "r1",
+      "demo": "Demonstrate a job processing with circuit breaker and fallback path active.",
+      "goal": "Integrate external API calls with circuit breakers and fallback paths.",
+      "name": "External API Handling",
+      "week_end": 2,
+      "week_start": 1,
+      "story_ids": [
+        "STORY-003",
+        "STORY-004"
+      ],
+      "starts_on": null,
+      "ends_on": null,
+      "is_demo_target": false
+    },
+    {
+      "key": "r2",
+      "demo": "Show live SLO metrics and autoscaling in action.",
+      "goal": "Implement SLO dashboard and autoscaling workers.",
+      "name": "Monitoring and Autoscaling",
+      "week_end": 3,
+      "week_start": 2,
+      "story_ids": [
+        "STORY-005",
+        "STORY-006"
+      ],
+      "starts_on": null,
+      "ends_on": null,
+      "is_demo_target": false
+    },
+    {
+      "key": "r3",
+      "demo": "Show DLQ triage and low-confidence job routing to review queue.",
+      "goal": "Implement DLQ triage and low-confidence routing.",
+      "name": "Advanced Job Processing",
+      "week_end": 4,
+      "week_start": 3,
+      "story_ids": [
+        "STORY-007",
+        "STORY-008",
+        "STORY-011",
+        "STORY-012"
+      ],
+      "starts_on": null,
+      "ends_on": null,
+      "is_demo_target": false
+    },
+    {
+      "key": "r4",
+      "demo": "Survive chaos drills without data loss or duplicate processing.",
+      "goal": "Conduct chaos drills and finalize deployment to production.",
+      "name": "Chaos Engineering and Final Deployment",
+      "week_end": 5,
+      "week_start": 4,
+      "story_ids": [
+        "STORY-009",
+        "STORY-010"
+      ],
+      "starts_on": null,
+      "ends_on": null,
+      "is_demo_target": false
+    }
+  ],
+  "stories": [
+    {
+      "id": "STORY-001",
+      "title": "Process a job with idempotency and logging",
+      "release": "r0",
+      "fulfills": [
+        "REQ-002",
+        "REQ-005"
+      ],
+      "narrative": "As a system, I want to process jobs idempotently, so that re-delivered jobs do not double-process.",
+      "acceptance": [
+        "Given a job in the queue, When it is processed, Then it is logged with a correlation ID",
+        "Given a re-delivered job, When it is processed, Then it does not double-process",
+        "Trust: All job processing is logged with correlation IDs"
+      ],
+      "blocked_by": [],
+      "owner_agent": "System",
+      "failure_paths": [
+        "Job fails to process",
+        "Job processes twice",
+        "Logging fails"
+      ],
+      "task_guidance": "Implement job processing logic with idempotency checks and structured logging.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-002",
+      "title": "Process jobs with durable queue and logging",
+      "release": "r0",
+      "fulfills": [
+        "REQ-001",
+        "REQ-011"
+      ],
+      "narrative": "As a system, I want to process jobs using a durable queue, so that job processing is reliable and traceable.",
+      "acceptance": [
+        "Given a job is submitted, When it is processed, Then it is logged with its correlation ID",
+        "Given a job is processed, When it is low-confidence, Then it is logged with its correlation ID",
+        "Trust: Given a job is processed, Then its processing is logged for traceability"
+      ],
+      "blocked_by": [],
+      "owner_agent": "System",
+      "failure_paths": [
+        "Job not added to queue",
+        "Job processing fails",
+        "Logging service unavailable"
+      ],
+      "task_guidance": "Use the existing job queue to process jobs and ensure logging includes correlation IDs for traceability.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-003",
+      "title": "Handle API calls with circuit breaker and validation",
+      "release": "r1",
+      "fulfills": [
+        "REQ-003",
+        "REQ-012"
+      ],
+      "narrative": "As a system, I want to handle API calls with a circuit breaker, so that I can prevent cascading failures and ensure data integrity.",
+      "acceptance": [
+        "Given an API call is made, When the circuit breaker is closed, Then the call proceeds",
+        "Given an API call is made, When the circuit breaker is open, Then the call is blocked",
+        "Trust: Given output is generated, Then it is validated against the JSON schema before persisting"
+      ],
+      "blocked_by": [],
+      "owner_agent": "System",
+      "failure_paths": [
+        "Circuit breaker fails to open",
+        "Output validation fails",
+        "API call times out"
+      ],
+      "task_guidance": "Integrate a circuit breaker pattern for API calls and validate outputs against the JSON schema before persisting.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-004",
+      "title": "Implement dead-letter queue with triage runbook",
+      "release": "r1",
+      "fulfills": [
+        "REQ-004"
+      ],
+      "narrative": "As a system, I want to use a dead-letter queue, so that failed jobs are managed and triaged.",
+      "acceptance": [
+        "Given a job, When retries are exhausted, Then it is moved to the dead-letter queue",
+        "Given a dead-letter queue, When a job is triaged, Then it is logged with a reason",
+        "Trust: Dead-letter queue entries are logged with correlation IDs"
+      ],
+      "blocked_by": [
+        "STORY-001"
+      ],
+      "owner_agent": "System",
+      "failure_paths": [
+        "Job does not move to DLQ",
+        "DLQ entry is not logged",
+        "Triage runbook is incomplete"
+      ],
+      "task_guidance": "Set up dead-letter queue and create triage runbook for failed jobs.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-005",
+      "title": "Display live SLO dashboard",
+      "release": "r2",
+      "fulfills": [
+        "REQ-006",
+        "REQ-018"
+      ],
+      "narrative": "As a user, I want to see a live SLO dashboard, so that I can monitor system performance.",
+      "acceptance": [
+        "Given the system, When jobs are processed, Then SLO metrics are updated live",
+        "Given the SLO dashboard, When an error occurs, Then it is reflected in the error budget",
+        "Trust: SLO metrics are logged with correlation IDs"
+      ],
+      "blocked_by": [
+        "STORY-003"
+      ],
+      "owner_agent": "User",
+      "failure_paths": [
+        "Dashboard fails to update",
+        "Metrics are inaccurate",
+        "Error budget is not tracked"
+      ],
+      "task_guidance": "Implement SLO dashboard with live metrics display.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-006",
+      "title": "Implement autoscaling for worker processes",
+      "release": "r2",
+      "fulfills": [
+        "REQ-007"
+      ],
+      "narrative": "As a system, I want to autoscale worker processes, so that job processing adapts to load.",
+      "acceptance": [
+        "Given job load increases, When workers are needed, Then they are autoscaled",
+        "Given job load decreases, When workers are not needed, Then they are scaled down",
+        "Trust: Autoscaling events are logged with correlation IDs"
+      ],
+      "blocked_by": [
+        "STORY-003"
+      ],
+      "owner_agent": "System",
+      "failure_paths": [
+        "Workers do not scale up",
+        "Workers do not scale down",
+        "Autoscaling fails to log"
+      ],
+      "task_guidance": "Configure autoscaling for worker processes based on job queue depth.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-007",
+      "title": "Route low-confidence jobs to review queue",
+      "release": "r3",
+      "fulfills": [
+        "REQ-010"
+      ],
+      "narrative": "As a system, I want to route low-confidence jobs to a review queue, so that they are not auto-resolved.",
+      "acceptance": [
+        "Given a low-confidence job, When it is processed, Then it is routed to the review queue",
+        "Given a review queue, When a job is added, Then it is logged with a correlation ID",
+        "Trust: Low-confidence jobs are logged with correlation IDs"
+      ],
+      "blocked_by": [
+        "STORY-005"
+      ],
+      "owner_agent": "System",
+      "failure_paths": [
+        "Job does not route to review queue",
+        "Review queue entry is not logged",
+        "Low-confidence job is auto-resolved"
+      ],
+      "task_guidance": "Implement routing logic for low-confidence jobs to review queue.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-008",
+      "title": "Codify DLQ triage into retry policy",
+      "release": "r3",
+      "fulfills": [
+        "REQ-015"
+      ],
+      "narrative": "As a system, I want to codify DLQ triage into the retry policy, so that manual review is minimized.",
+      "acceptance": [
+        "Given a DLQ entry, When it is triaged, Then the retry policy is updated",
+        "Given the retry policy, When a job fails, Then it follows the updated policy",
+        "Trust: DLQ triage updates are logged with correlation IDs"
+      ],
+      "blocked_by": [
+        "STORY-005"
+      ],
+      "owner_agent": "System",
+      "failure_paths": [
+        "DLQ triage is not codified",
+        "Retry policy is not updated",
+        "Triage updates are not logged"
+      ],
+      "task_guidance": "Analyze DLQ entries and update retry policy based on triage results.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-009",
+      "title": "Conduct chaos-engineering drills",
+      "release": "r4",
+      "fulfills": [
+        "REQ-008"
+      ],
+      "narrative": "As a system, I want to conduct chaos-engineering drills, so that system resilience is tested.",
+      "acceptance": [
+        "Given a chaos drill, When a worker is killed mid-job, Then the system recovers without data loss",
+        "Given a queue backlog, When it is forced, Then the system processes jobs without duplicates",
+        "Trust: Chaos drill events are logged with correlation IDs"
+      ],
+      "blocked_by": [
+        "STORY-007"
+      ],
+      "owner_agent": "System",
+      "failure_paths": [
+        "System fails during chaos drill",
+        "Data is lost during drill",
+        "Duplicate processing occurs"
+      ],
+      "task_guidance": "Plan and execute chaos-engineering drills to test system resilience.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-010",
+      "title": "Deploy with monitoring and status view",
+      "release": "r4",
+      "fulfills": [
+        "REQ-009",
+        "REQ-013",
+        "REQ-014"
+      ],
+      "narrative": "As an operations team, I want to deploy the system with monitoring, so that I can track system health and provide status updates.",
+      "acceptance": [
+        "Given the system is deployed, When it is running, Then job success rate and latency are tracked",
+        "Given the system is deployed, When a status request is made, Then a plain-language status view is provided",
+        "Trust: Given the system is running, Then monitoring data is logged for auditability"
+      ],
+      "blocked_by": [
+        "STORY-009"
+      ],
+      "owner_agent": "Operations Team",
+      "failure_paths": [
+        "Deployment fails",
+        "Monitoring service unavailable",
+        "Status view not updated"
+      ],
+      "task_guidance": "Deploy the system to the production host and ensure monitoring tracks job success rate, latency, and provides a status view.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-011",
+      "title": "Ensure classification runs against fixed taxonomy",
+      "release": "r3",
+      "fulfills": [
+        "REQ-017"
+      ],
+      "narrative": "As a system, I want to ensure classification runs against a fixed taxonomy, so that results are consistent and reliable.",
+      "acceptance": [
+        "Given a classification task, When it is executed, Then it uses the fixed taxonomy",
+        "Given a classification task, When the taxonomy is unavailable, Then the task fails gracefully",
+        "Trust: Given a classification task, Then its execution is logged with the taxonomy version"
+      ],
+      "blocked_by": [
+        "STORY-008"
+      ],
+      "owner_agent": "System",
+      "failure_paths": [
+        "Taxonomy not found",
+        "Classification task fails",
+        "Logging service unavailable"
+      ],
+      "task_guidance": "Ensure classification tasks reference the fixed taxonomy and log the taxonomy version used.",
+      "due_on": null,
+      "due_baseline_on": null
+    },
+    {
+      "id": "STORY-012",
+      "title": "Generate summaries grounded in source data",
+      "release": "r3",
+      "fulfills": [
+        "REQ-016"
+      ],
+      "narrative": "As a system, I want to generate summaries grounded in source data, so that they are accurate and verifiable.",
+      "acceptance": [
+        "Given a summary is generated, When source data is available, Then it is grounded in that data",
+        "Given a summary is generated, When source data is missing, Then the summary generation fails",
+        "Trust: Given a summary is generated, Then its source data is logged for verification"
+      ],
+      "blocked_by": [
+        "STORY-011"
+      ],
+      "owner_agent": "System",
+      "failure_paths": [
+        "Source data unavailable",
+        "Summary generation fails",
+        "Logging service unavailable"
+      ],
+      "task_guidance": "Ensure summaries are generated using the source data and log the data used for verification.",
+      "due_on": null,
+      "due_baseline_on": null
+    }
+  ],
+  "agents": [],
+  "project": {
+    "name": "Relay: AI Agent Job Orchestration Platform",
+    "descriptor": "A distributed job-orchestration system for batch enrichment pipelines, ensuring reliability engineering at scale.",
+    "repo_url": null,
+    "plan_version": 1,
+    "plan_sha256": "38587c81fcb83f39e5e17611ee5221332c9553321c26b917559279474c149fea"
+  },
+  "schedule": null,
+  "derived": {
+    "measures": [],
+    "guardrails": [],
+    "systems": [
+      "Redis Streams",
+      "SQS"
+    ],
+    "roles": [
+      "user",
+      "operations team"
+    ],
+    "counts": {
+      "requirements_total": 18,
+      "requirements_by_kind": {
+        "CONSTRAINT": 2,
+        "FUNC": 16
+      },
+      "stories_total": 12,
+      "releases_total": 5,
+      "agents_total": 0,
+      "failure_paths_total": 34,
+      "agents_by_autonomy": {}
+    }
+  }
+}

@@ -1,0 +1,336 @@
+{
+  "schema_version": 2,
+  "project": "Relay: AI Agent Job Orchestration Platform",
+  "totals": {
+    "stories_total": 13,
+    "stories_verified": 0,
+    "stories_submitted": 0,
+    "stories_in_progress": 0,
+    "stories_not_started": 13,
+    "criteria_total": 41,
+    "criteria_passed": 0,
+    "points_awarded": 0
+  },
+  "stories": [
+    {
+      "id": "STORY-000",
+      "release": null,
+      "acceptance_total": 5,
+      "criteria": [
+        {
+          "text": "Given the Command Center, when it is opened, then every tab is reachable and every card drills down one level.",
+          "passed": false
+        },
+        {
+          "text": "Given sample mode, when any tab is shown, then the sample data is visibly labelled as sample.",
+          "passed": false
+        },
+        {
+          "text": "Given the Command Center, when any tab renders, then .colaberry/plan.json and .colaberry/progress.json are both committed in this repo and every tab reads its content from them at runtime rather than from hard-coded values.",
+          "passed": false
+        },
+        {
+          "text": "Given the Command Center, when any tab is shown, then .colaberry/manifest.json is committed in this repo and every tab shows how old that data is and warns when the age exceeds a week.",
+          "passed": false
+        },
+        {
+          "text": "Trust — no tab shows a number, a connection or a result the project has not actually produced.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-001",
+      "release": "r0",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a job in the queue, When it is processed, Then it is logged with a correlation ID",
+          "passed": false
+        },
+        {
+          "text": "Given a re-delivered job, When it is processed, Then it does not double-process",
+          "passed": false
+        },
+        {
+          "text": "Trust: All job processing is logged with correlation IDs",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-002",
+      "release": "r0",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a job is submitted, When it is processed, Then it is logged with its correlation ID",
+          "passed": false
+        },
+        {
+          "text": "Given a job is processed, When it is low-confidence, Then it is logged with its correlation ID",
+          "passed": false
+        },
+        {
+          "text": "Trust: Given a job is processed, Then its processing is logged for traceability",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-003",
+      "release": "r1",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given an API call is made, When the circuit breaker is closed, Then the call proceeds",
+          "passed": false
+        },
+        {
+          "text": "Given an API call is made, When the circuit breaker is open, Then the call is blocked",
+          "passed": false
+        },
+        {
+          "text": "Trust: Given output is generated, Then it is validated against the JSON schema before persisting",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-004",
+      "release": "r1",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a job, When retries are exhausted, Then it is moved to the dead-letter queue",
+          "passed": false
+        },
+        {
+          "text": "Given a dead-letter queue, When a job is triaged, Then it is logged with a reason",
+          "passed": false
+        },
+        {
+          "text": "Trust: Dead-letter queue entries are logged with correlation IDs",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-005",
+      "release": "r2",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given the system, When jobs are processed, Then SLO metrics are updated live",
+          "passed": false
+        },
+        {
+          "text": "Given the SLO dashboard, When an error occurs, Then it is reflected in the error budget",
+          "passed": false
+        },
+        {
+          "text": "Trust: SLO metrics are logged with correlation IDs",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-006",
+      "release": "r2",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given job load increases, When workers are needed, Then they are autoscaled",
+          "passed": false
+        },
+        {
+          "text": "Given job load decreases, When workers are not needed, Then they are scaled down",
+          "passed": false
+        },
+        {
+          "text": "Trust: Autoscaling events are logged with correlation IDs",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-007",
+      "release": "r3",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a low-confidence job, When it is processed, Then it is routed to the review queue",
+          "passed": false
+        },
+        {
+          "text": "Given a review queue, When a job is added, Then it is logged with a correlation ID",
+          "passed": false
+        },
+        {
+          "text": "Trust: Low-confidence jobs are logged with correlation IDs",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-008",
+      "release": "r3",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a DLQ entry, When it is triaged, Then the retry policy is updated",
+          "passed": false
+        },
+        {
+          "text": "Given the retry policy, When a job fails, Then it follows the updated policy",
+          "passed": false
+        },
+        {
+          "text": "Trust: DLQ triage updates are logged with correlation IDs",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-009",
+      "release": "r4",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a chaos drill, When a worker is killed mid-job, Then the system recovers without data loss",
+          "passed": false
+        },
+        {
+          "text": "Given a queue backlog, When it is forced, Then the system processes jobs without duplicates",
+          "passed": false
+        },
+        {
+          "text": "Trust: Chaos drill events are logged with correlation IDs",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-010",
+      "release": "r4",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given the system is deployed, When it is running, Then job success rate and latency are tracked",
+          "passed": false
+        },
+        {
+          "text": "Given the system is deployed, When a status request is made, Then a plain-language status view is provided",
+          "passed": false
+        },
+        {
+          "text": "Trust: Given the system is running, Then monitoring data is logged for auditability",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-011",
+      "release": "r3",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a classification task, When it is executed, Then it uses the fixed taxonomy",
+          "passed": false
+        },
+        {
+          "text": "Given a classification task, When the taxonomy is unavailable, Then the task fails gracefully",
+          "passed": false
+        },
+        {
+          "text": "Trust: Given a classification task, Then its execution is logged with the taxonomy version",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    },
+    {
+      "id": "STORY-012",
+      "release": "r3",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a summary is generated, When source data is available, Then it is grounded in that data",
+          "passed": false
+        },
+        {
+          "text": "Given a summary is generated, When source data is missing, Then the summary generation fails",
+          "passed": false
+        },
+        {
+          "text": "Trust: Given a summary is generated, Then its source data is logged for verification",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": null
+    }
+  ]
+}
