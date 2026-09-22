@@ -6,22 +6,33 @@
 // the declared schema before persisting (REQ-012), never after.
 
 import { CircuitBreaker } from "./circuitBreaker.js";
-import { withReliability, type ReliabilityOptions } from "./withReliability.js";
+import { withReliability, UpstreamCallFailedError, type ReliabilityOptions } from "./withReliability.js";
 import { persistOutput } from "./persistOutput.js";
+import { moveToDeadLetterQueue } from "./dlq.js";
 import { logJson } from "./logger.js";
 import type { JobOutputSchema } from "../guardrails/outputContractGuardrail.js";
+import type { RedisStreamQueue } from "./queue.js";
+import type { Job } from "./processJob.js";
 
 export type CallResult =
   | { status: "persisted" }
   | { status: "validation_failed"; violations: string[] }
-  | { status: "call_failed"; errorClass: string };
+  | { status: "call_failed"; errorClass: string }
+  | { status: "moved_to_dlq"; errorClass: string };
 
 export async function callExternalApiAndPersist(
   apiCall: () => Promise<Record<string, unknown>>,
   schema: JobOutputSchema,
   correlationId: string,
   breaker: CircuitBreaker,
-  reliabilityOptions: Omit<ReliabilityOptions, "circuitBreaker">
+  reliabilityOptions: Omit<ReliabilityOptions, "circuitBreaker">,
+  // Optional (STORY-004): when both are given, a job whose retries are
+  // genuinely exhausted (UpstreamCallFailedError) moves to the DLQ instead
+  // of just being reported as failed. A circuit-open rejection does NOT
+  // move the job to the DLQ — the call was never even attempted, so this
+  // isn't "retries exhausted," and the caller may reasonably retry once the
+  // circuit's cooldown elapses.
+  dlqOptions?: { job: Job; dlq: RedisStreamQueue }
 ): Promise<CallResult> {
   let output: Record<string, unknown>;
   try {
@@ -34,6 +45,12 @@ export async function callExternalApiAndPersist(
       outcome: "failure",
       errorClass,
     });
+
+    if (error instanceof UpstreamCallFailedError && dlqOptions) {
+      await moveToDeadLetterQueue(dlqOptions.dlq, dlqOptions.job, error.message);
+      return { status: "moved_to_dlq", errorClass };
+    }
+
     return { status: "call_failed", errorClass };
   }
 

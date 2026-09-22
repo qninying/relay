@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-004",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-09-22T17:45:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "systems",
+      "value": "The dead-letter queue is a second Redis Stream (relay:jobs:dlq in production usage), read/written through the same RedisStreamQueue class as the primary job queue.",
+      "evidence": "src/dlq.ts"
+    },
+    {
+      "dimension": "exceptions",
+      "value": "A circuit-open rejection (CircuitOpenError) is explicitly NOT treated as retries-exhausted and does not move a job to the DLQ - only UpstreamCallFailedError does.",
+      "evidence": "src/callExternalApi.ts"
+    },
+    {
+      "dimension": "current_workflow",
+      "value": "DLQ triage is currently a manual, code-level action (no CLI or UI yet) - a human runs triageNextDeadLetterEntry() directly per docs/runbooks/DLQ_TRIAGE.md.",
+      "evidence": "docs/runbooks/DLQ_TRIAGE.md"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "The DLQ reuses RedisStreamQueue (the same class STORY-002 built for the primary queue) rather than a new queue mechanism.",
+      "rationale": "a dead-letter queue is structurally just another durable stream a job lands in instead of vanishing; building a second mechanism would duplicate logic already proven correct.",
+      "evidence": "src/dlq.ts"
+    },
+    {
+      "statement": "The original job's payload is preserved whole inside the DLQ entry (payload.originalPayload), alongside the failure reason and timestamp, rather than discarding or reshaping it.",
+      "rationale": "triage needs the real job to decide whether resubmission is safe; a DLQ entry that lost the original data would be undebuggable.",
+      "evidence": "src/dlq.ts"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "No automated retry-from-DLQ exists - resubmission after triage is a manual action described in the runbook, not code.",
+      "evidence": "docs/runbooks/DLQ_TRIAGE.md"
+    },
+    {
+      "statement": "No DLQ size or age alerting exists - nothing pages anyone when the DLQ grows or an entry sits untriaged.",
+      "evidence": "docs/runbooks/DLQ_TRIAGE.md"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/dlq.test.ts" },
+    { "kind": "test", "ref": "src/callExternalApiDlq.test.ts" }
+  ],
+  "measurementEvents": []
+}
