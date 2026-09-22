@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relay — Outcomes</title>
+<link rel="stylesheet" href="assets/command-center.css?v=2" />
+</head>
+<body>
+  <header class="cc-header">
+    <div class="cc-header-top">
+      <div class="cc-brand">Relay Command Center<span class="cc-brand-sub" id="cc-project-sub"></span></div>
+      <div class="cc-mode-toggle" id="cc-mode-toggle"></div>
+    </div>
+    <div class="cc-data-as-of" id="cc-data-as-of">Loading…</div>
+    <nav class="cc-nav" id="cc-nav"></nav>
+  </header>
+
+  <main>
+    <h1 class="cc-page-title">Outcomes</h1>
+    <p class="cc-page-desc">The numbers this system has to move.</p>
+    <div id="cc-content">Loading…</div>
+  </main>
+
+  <script src="assets/command-center.js?v=2"></script>
+  <script>
+    function render({ plan, mode }) {
+      const el = document.getElementById("cc-content");
+      const sub = document.getElementById("cc-project-sub");
+      if (!plan) { el.innerHTML = `<div class="cc-empty-state">.colaberry/plan.json is missing or unreadable.</div>`; return; }
+      sub.textContent = " · " + plan.project.name;
+
+      const measures = (plan.derived && plan.derived.measures) || [];
+
+      if (measures.length === 0) {
+        el.innerHTML = `
+          <div class="cc-empty-state">
+            <p style="margin:0 0 8px; font-weight:600;">No measures defined yet</p>
+            <p style="margin:0;">This plan doesn't carry a numeric target yet — no KPI, metric,
+            or outcome number has been committed to for Relay. One card will render here per
+            measure the moment <code>plan.derived.measures</code> carries any; nothing is
+            invented to fill the space in the meantime.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const badge = CommandCenter.sampleBadge();
+      el.innerHTML = `<div class="cc-grid">` + measures.map((m) => `
+        <div class="cc-card">
+          <h3>${CommandCenter.esc(m.id)}${badge}</h3>
+          <p>${CommandCenter.esc(m.statement)}</p>
+        </div>
+      `).join("") + `</div>`;
+    }
+    CommandCenter.init("outcomes", render);
+  </script>
+</body>
+</html>

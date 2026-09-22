@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relay — Systems</title>
+<link rel="stylesheet" href="assets/command-center.css?v=2" />
+</head>
+<body>
+  <header class="cc-header">
+    <div class="cc-header-top">
+      <div class="cc-brand">Relay Command Center<span class="cc-brand-sub" id="cc-project-sub"></span></div>
+      <div class="cc-mode-toggle" id="cc-mode-toggle"></div>
+    </div>
+    <div class="cc-data-as-of" id="cc-data-as-of">Loading…</div>
+    <nav class="cc-nav" id="cc-nav"></nav>
+  </header>
+
+  <main>
+    <h1 class="cc-page-title">Systems</h1>
+    <p class="cc-page-desc">What Relay connects to, and whether it's actually reachable right now.</p>
+    <div id="cc-content">Loading…</div>
+  </main>
+
+  <script src="assets/command-center.js?v=2"></script>
+  <script>
+    function renderList({ plan }) {
+      const el = document.getElementById("cc-content");
+      const systems = (plan.derived && plan.derived.systems) || [];
+      if (systems.length === 0) {
+        el.innerHTML = `<div class="cc-empty-state">No systems named in this plan's requirement text yet.</div>`;
+        return;
+      }
+      el.innerHTML = `<div class="cc-grid">` + systems.map((s) => `
+        <a class="cc-card" href="systems.html?id=${encodeURIComponent(s)}">
+          <h3>${CommandCenter.statusDot("unknown")}${CommandCenter.esc(s)}</h3>
+          <p>Not checked from here</p>
+        </a>
+      `).join("") + `</div>`;
+    }
+
+    function renderDetail({ plan }, id) {
+      const el = document.getElementById("cc-content");
+      const systems = (plan.derived && plan.derived.systems) || [];
+      if (!systems.includes(id)) {
+        el.innerHTML = `<p><a href="systems.html">&larr; Systems</a></p><div class="cc-empty-state">No system "${CommandCenter.esc(id)}" in this plan.</div>`;
+        return;
+      }
+      el.innerHTML = `
+        <p><a href="systems.html">&larr; Systems</a></p>
+        <div class="cc-panel-box">
+          <h3 style="margin-top:0;">${CommandCenter.statusDot("unknown")}${CommandCenter.esc(id)}</h3>
+          <p><strong>Status:</strong> Not checked from here</p>
+          <p><strong>Last checked:</strong> never</p>
+          <p style="color: var(--cc-muted); font-size: 13px; margin-top: 12px;">
+            This name comes only from requirement text (<code>plan.derived.systems</code>) —
+            <code>${CommandCenter.esc(id)}</code> was named as an integration target, but
+            connecting it is separate, unbuilt work. Nothing in this repo can reach it yet, so
+            an indicator here goes green only once the running system reports a real
+            connection — never because a name appeared in a JSON file.
+          </p>
+        </div>
+      `;
+    }
+
+    function render(data) {
+      const sub = document.getElementById("cc-project-sub");
+      if (data.plan) sub.textContent = " · " + data.plan.project.name;
+      if (!data.plan) { document.getElementById("cc-content").innerHTML = `<div class="cc-empty-state">.colaberry/plan.json is missing or unreadable.</div>`; return; }
+      const id = CommandCenter.getParam("id");
+      if (id) renderDetail(data, id);
+      else renderList(data);
+    }
+    CommandCenter.init("systems", render);
+  </script>
+</body>
+</html>

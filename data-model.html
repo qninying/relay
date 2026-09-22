@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relay — Data Model</title>
+<link rel="stylesheet" href="assets/command-center.css?v=2" />
+</head>
+<body>
+  <header class="cc-header">
+    <div class="cc-header-top">
+      <div class="cc-brand">Relay Command Center<span class="cc-brand-sub" id="cc-project-sub"></span></div>
+      <div class="cc-mode-toggle" id="cc-mode-toggle"></div>
+    </div>
+    <div class="cc-data-as-of" id="cc-data-as-of">Loading…</div>
+    <nav class="cc-nav" id="cc-nav"></nav>
+  </header>
+
+  <main>
+    <h1 class="cc-page-title">Data Model</h1>
+    <p class="cc-page-desc">The tables behind the requirements — a proposal for review, not a migration that's been run.</p>
+    <div id="cc-content">Loading…</div>
+  </main>
+
+  <script src="assets/command-center.js?v=2"></script>
+  <script>
+    // Derived from the requirement text (see badges), not invented independently of it.
+    // No migration or table exists from this yet — this tab is the review step the
+    // brief asks for before any table gets created.
+    const ENTITIES = [
+      {
+        name: "Job",
+        purpose: "One row per unit of work moving through the pipeline.",
+        reqs: ["REQ-002", "REQ-005", "REQ-010", "REQ-012"],
+        fields: [
+          ["id", "uuid", "primary key"],
+          ["idempotency_key", "text, unique", "REQ-002 — re-delivery must not double-process"],
+          ["job_type", "text", "e.g. lead_enrichment"],
+          ["status", "enum: success | failed | needs_review", "REQ-010 — needs_review is a third outcome, not a flag on failed"],
+          ["confidence", "float, nullable", "populated for classification jobs"],
+          ["correlation_id", "uuid", "REQ-005 — threaded through queue, worker, external call"],
+          ["created_at", "timestamp", ""],
+        ],
+      },
+      {
+        name: "JobAttempt",
+        purpose: "One row per retry of a job, so failure history isn't overwritten.",
+        reqs: ["REQ-003", "REQ-015"],
+        fields: [
+          ["id", "uuid", "primary key"],
+          ["job_id", "uuid, fk → Job", ""],
+          ["attempt_number", "int", ""],
+          ["error_class", "text, nullable", "REQ-015 — named class, not a generic catch"],
+          ["outcome", "enum: success | retryable_failure | terminal_failure", ""],
+          ["attempted_at", "timestamp", ""],
+        ],
+      },
+      {
+        name: "DeadLetterEntry",
+        purpose: "A job that exhausted retries, staged for triage rather than lost.",
+        reqs: ["REQ-004"],
+        fields: [
+          ["job_id", "uuid, fk → Job", "primary key"],
+          ["failure_mode", "text", "classification used to codify the retry policy (REQ-015)"],
+          ["triaged_at", "timestamp, nullable", ""],
+          ["triaged_by", "text, nullable", ""],
+          ["resolution", "text, nullable", ""],
+        ],
+      },
+      {
+        name: "RetryPolicyRule",
+        purpose: "Maps a failure mode to a retry behaviour, so triage becomes automatic.",
+        reqs: ["REQ-015"],
+        fields: [
+          ["error_class", "text", "primary key"],
+          ["max_attempts", "int", ""],
+          ["backoff_strategy", "text", "e.g. exponential, fixed"],
+        ],
+      },
+      {
+        name: "ClassificationTaxonomyEntry",
+        purpose: "The fixed, pre-defined taxonomy classification must run against — not a free-text label.",
+        reqs: ["REQ-017"],
+        fields: [
+          ["code", "text", "primary key"],
+          ["label", "text", ""],
+          ["domain", "text", "which job_type this code applies to"],
+        ],
+      },
+      {
+        name: "CircuitBreakerState",
+        purpose: "One row per external API, tracking whether calls are currently allowed.",
+        reqs: ["REQ-003"],
+        fields: [
+          ["external_api_name", "text", "primary key"],
+          ["state", "enum: closed | open | half_open", ""],
+          ["trip_count", "int", ""],
+          ["last_tripped_at", "timestamp, nullable", ""],
+        ],
+      },
+      {
+        name: "SLOMetricSnapshot",
+        purpose: "A point-in-time reading of the numbers the SLO dashboard shows.",
+        reqs: ["REQ-006", "REQ-014", "REQ-018"],
+        fields: [
+          ["captured_at", "timestamp", "primary key"],
+          ["success_rate", "float", ""],
+          ["p95_latency_ms", "int", ""],
+          ["dlq_rate", "float", ""],
+          ["circuit_breaker_trip_count", "int", ""],
+          ["queue_depth", "int", ""],
+        ],
+      },
+    ];
+
+    function render({ plan }) {
+      const el = document.getElementById("cc-content");
+      const sub = document.getElementById("cc-project-sub");
+      if (plan) sub.textContent = " · " + plan.project.name;
+
+      el.innerHTML = `
+        <div class="cc-banner">
+          Proposed model, for review — nothing here has been created as a real table or
+          migration yet. Each entity traces back to specific requirement text; none is
+          invented ahead of what the requirements actually say.
+        </div>
+      ` + ENTITIES.map((e) => `
+        <div class="cc-panel-box">
+          <h3 style="margin-top:0;">${CommandCenter.esc(e.name)} <span style="font-weight:400; color:var(--cc-muted); font-size:13px;">— ${CommandCenter.esc(e.purpose)}</span></h3>
+          <p style="margin:0 0 10px;">${e.reqs.map((r) => `<a href="knowledge-base.html#${encodeURIComponent(r)}" class="cc-tag">${CommandCenter.esc(r)}</a>`).join(" ")}</p>
+          <table class="cc-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Why</th></tr></thead>
+            <tbody>
+              ${e.fields.map(([f, t, why]) => `<tr><td>${CommandCenter.esc(f)}</td><td>${CommandCenter.esc(t)}</td><td>${CommandCenter.esc(why)}</td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      `).join("");
+    }
+    CommandCenter.init("data-model", render);
+  </script>
+</body>
+</html>

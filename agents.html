@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relay — AI Agents</title>
+<link rel="stylesheet" href="assets/command-center.css?v=2" />
+</head>
+<body>
+  <header class="cc-header">
+    <div class="cc-header-top">
+      <div class="cc-brand">Relay Command Center<span class="cc-brand-sub" id="cc-project-sub"></span></div>
+      <div class="cc-mode-toggle" id="cc-mode-toggle"></div>
+    </div>
+    <div class="cc-data-as-of" id="cc-data-as-of">Loading…</div>
+    <nav class="cc-nav" id="cc-nav"></nav>
+  </header>
+
+  <main>
+    <h1 class="cc-page-title">AI Agents</h1>
+    <p class="cc-page-desc">The agents (and story owners) driving this build.</p>
+    <div id="cc-content">Loading…</div>
+  </main>
+
+  <script src="assets/command-center.js?v=2"></script>
+  <script>
+    function render({ plan, progress }) {
+      const el = document.getElementById("cc-content");
+      const sub = document.getElementById("cc-project-sub");
+      if (!plan) { el.innerHTML = `<div class="cc-empty-state">.colaberry/plan.json is missing or unreadable.</div>`; return; }
+      sub.textContent = " · " + plan.project.name;
+
+      const agents = plan.agents || [];
+      const progressById = new Map((progress?.stories || []).map((s) => [s.id, s]));
+
+      const scopedNote = agents.length === 0
+        ? `<div class="cc-panel-box"><p style="margin:0; font-size:13px; color: var(--cc-muted);">
+            This plan doesn't carry a scoped agent roster yet — <code>plan.agents</code> is empty.
+            Built below from who owns each story instead. These are owners, not scoped agents:
+            no trigger, no autonomy level, no approval gate has been defined for any of them.
+          </p></div>`
+        : "";
+
+      let ownerCards = "";
+      if (agents.length > 0) {
+        ownerCards = `<div class="cc-grid">` + agents.map((a) => `
+          <div class="cc-card">
+            <h3>${CommandCenter.esc(a.name)}</h3>
+            <p>${CommandCenter.esc(a.purpose)}</p>
+            <p style="margin-top:8px; font-size:12px;">Autonomy: ${CommandCenter.esc(a.autonomy_level || "unspecified")}</p>
+          </div>
+        `).join("") + `</div>`;
+      } else {
+        const owners = new Map();
+        (plan.stories || []).forEach((s) => {
+          const owner = s.owner_agent || "Unassigned";
+          if (!owners.has(owner)) owners.set(owner, []);
+          owners.get(owner).push(s);
+        });
+        ownerCards = `<div class="cc-grid">` + [...owners.entries()].map(([owner, stories]) => {
+          const verifiedCount = stories.filter((s) => progressById.get(s.id)?.verification?.state === "verified").length;
+          return `
+            <div class="cc-card">
+              <h3>${CommandCenter.esc(owner)}</h3>
+              <p class="cc-card-value">${stories.length}</p>
+              <p>${stories.length === 1 ? "story" : "stories"} owned · ${verifiedCount} verified</p>
+              <p style="margin-top:10px; font-size:12px;">
+                ${stories.map((s) => `<a href="project-management.html?id=${encodeURIComponent(s.id)}" class="cc-tag" style="margin:2px;">${CommandCenter.esc(s.id)}</a>`).join(" ")}
+              </p>
+              <p style="margin-top:10px; font-size:12px; color: var(--cc-muted);">Skills: no skills registered yet</p>
+              <p style="margin-top:4px; font-size:12px; color: var(--cc-muted);">Runs: no runs recorded</p>
+            </div>
+          `;
+        }).join("") + `</div>`;
+      }
+
+      el.innerHTML = scopedNote + ownerCards;
+    }
+    CommandCenter.init("agents", render);
+  </script>
+</body>
+</html>

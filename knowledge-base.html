@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relay — Knowledge Base</title>
+<link rel="stylesheet" href="assets/command-center.css?v=2" />
+<style>
+  .cc-search-box { width: 100%; padding: 10px 14px; font-size: 14px; border: 1px solid var(--cc-border); border-radius: 8px; margin-bottom: 12px; }
+  .cc-search-hit { background: var(--cc-panel); border: 1px solid var(--cc-border); border-radius: var(--cc-radius); padding: 12px 16px; margin-bottom: 8px; }
+  .cc-search-hit .cc-hit-tab { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--cc-accent); font-weight: 700; }
+</style>
+</head>
+<body>
+  <header class="cc-header">
+    <div class="cc-header-top">
+      <div class="cc-brand">Relay Command Center<span class="cc-brand-sub" id="cc-project-sub"></span></div>
+      <div class="cc-mode-toggle" id="cc-mode-toggle"></div>
+    </div>
+    <div class="cc-data-as-of" id="cc-data-as-of">Loading…</div>
+    <nav class="cc-nav" id="cc-nav"></nav>
+  </header>
+
+  <main>
+    <h1 class="cc-page-title">Knowledge Base</h1>
+    <p class="cc-page-desc">Everything the project knows about itself — requirements, stories, and traceability. Grows over the whole programme.</p>
+
+    <input type="text" class="cc-search-box" id="cc-search" placeholder="Ask about a requirement, story, role, or system…" />
+    <div id="cc-search-results"></div>
+
+    <div id="cc-content">Loading…</div>
+  </main>
+
+  <script src="assets/command-center.js?v=2"></script>
+  <script>
+    let SEARCH_INDEX = [];
+
+    function buildSearchIndex(plan) {
+      const index = [];
+      (plan.requirements || []).forEach((r) => {
+        index.push({ id: r.id, text: `${r.id} ${r.statement} ${r.kind} ${r.priority} ${r.cluster}`, tab: "Knowledge Base", href: `knowledge-base.html#${r.id}`, summary: r.statement });
+      });
+      (plan.stories || []).forEach((s) => {
+        index.push({ id: s.id, text: `${s.id} ${s.title} ${s.narrative} ${s.release}`, tab: "Project Management", href: `project-management.html?id=${encodeURIComponent(s.id)}`, summary: s.title });
+      });
+      (plan.releases || []).forEach((r) => {
+        index.push({ id: r.key, text: `${r.key} ${r.name} ${r.goal} ${r.demo}`, tab: "Project Management", href: `project-management.html`, summary: `${r.key.toUpperCase()} — ${r.name}` });
+      });
+      ((plan.derived && plan.derived.systems) || []).forEach((s) => {
+        index.push({ id: s, text: s, tab: "Systems", href: "systems.html", summary: `System: ${s}` });
+      });
+      ((plan.derived && plan.derived.roles) || []).forEach((r) => {
+        index.push({ id: r, text: r, tab: "Users & Use Case", href: `users.html?role=${encodeURIComponent(r)}`, summary: `Role: ${r}` });
+      });
+      return index;
+    }
+
+    function runSearch(query) {
+      const el = document.getElementById("cc-search-results");
+      const q = query.trim().toLowerCase();
+      if (!q) { el.innerHTML = ""; return; }
+
+      const terms = q.split(/\s+/).filter(Boolean);
+      const scored = SEARCH_INDEX.map((entry) => {
+        const haystack = entry.text.toLowerCase();
+        const score = terms.reduce((sum, t) => sum + (haystack.includes(t) ? 1 : 0), 0);
+        return { entry, score };
+      }).filter((r) => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 8);
+
+      if (scored.length === 0) {
+        el.innerHTML = `<div class="cc-empty-state">Nothing in this project's data matches "${CommandCenter.esc(query)}" — try different words. This searches only what's actually in <code>.colaberry/plan.json</code>, never a guess.</div>`;
+        return;
+      }
+
+      el.innerHTML = scored.map(({ entry }) => `
+        <a class="cc-search-hit" href="${entry.href}" style="display:block; color: inherit;">
+          <div class="cc-hit-tab">Found in: ${CommandCenter.esc(entry.tab)}</div>
+          <div style="font-weight:600; margin:2px 0;">${CommandCenter.esc(entry.id)}</div>
+          <div style="font-size:13px; color: var(--cc-muted);">${CommandCenter.esc(entry.summary)}</div>
+        </a>
+      `).join("");
+    }
+
+    function renderTraceability(plan, progress) {
+      const rows = (plan.requirements || []).map((req) => {
+        const v = CommandCenter.verificationForRequirement(plan, progress, req);
+        const gap = req.priority === "must" && (req.fulfilled_by || []).length === 0;
+        return `
+          <tr id="${CommandCenter.esc(req.id)}">
+            <td>${CommandCenter.esc(req.id)}</td>
+            <td><span class="cc-tag ${req.priority === "must" ? "cc-tag-must" : "cc-tag-should"}">${CommandCenter.esc(req.priority)}</span></td>
+            <td>${CommandCenter.esc(req.statement)}</td>
+            <td>${(req.fulfilled_by || []).map((id) => `<a href="project-management.html?id=${encodeURIComponent(id)}">${CommandCenter.esc(id)}</a>`).join(", ") || (gap ? '<span style="color:var(--cc-danger);">gap — no story</span>' : "—")}</td>
+            <td>${CommandCenter.statusDot(v.state === "enforced" ? "verified" : v.state)}${CommandCenter.esc(v.state)}</td>
+          </tr>
+        `;
+      }).join("");
+
+      return `
+        <div class="cc-panel-box">
+          <h3 style="margin-top:0;">Traceability — every requirement, and what covers it</h3>
+          <table class="cc-table">
+            <thead><tr><th>ID</th><th>Priority</th><th>Statement</th><th>Fulfilled by</th><th>Status</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function render({ plan, progress }) {
+      const el = document.getElementById("cc-content");
+      const sub = document.getElementById("cc-project-sub");
+      if (!plan) { el.innerHTML = `<div class="cc-empty-state">.colaberry/plan.json is missing or unreadable.</div>`; return; }
+      sub.textContent = " · " + plan.project.name;
+
+      SEARCH_INDEX = buildSearchIndex(plan);
+      document.getElementById("cc-search").addEventListener("input", (e) => runSearch(e.target.value));
+
+      el.innerHTML = renderTraceability(plan, progress);
+
+      if (location.hash) {
+        const target = document.getElementById(location.hash.slice(1));
+        if (target) target.scrollIntoView();
+      }
+    }
+    CommandCenter.init("knowledge-base", render);
+  </script>
+</body>
+</html>

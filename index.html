@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relay — Command Center</title>
+<link rel="stylesheet" href="assets/command-center.css?v=2" />
+</head>
+<body>
+  <header class="cc-header">
+    <div class="cc-header-top">
+      <div class="cc-brand">Relay Command Center<span class="cc-brand-sub" id="cc-project-sub"></span></div>
+      <div class="cc-mode-toggle" id="cc-mode-toggle"></div>
+    </div>
+    <div class="cc-data-as-of" id="cc-data-as-of">Loading…</div>
+    <nav class="cc-nav" id="cc-nav"></nav>
+  </header>
+
+  <main>
+    <div id="cc-pause-banner"></div>
+    <h1 class="cc-page-title">Overview</h1>
+    <p class="cc-page-desc">
+      The single screen you'd show someone in thirty seconds: what Relay does,
+      which release it's in, and what's actually live versus not yet built.
+    </p>
+    <div id="cc-overview-content">Loading…</div>
+  </main>
+
+  <script src="assets/command-center.js?v=2"></script>
+  <script>
+    function renderOverview({ plan, progress, mode }) {
+      const el = document.getElementById("cc-overview-content");
+      const sub = document.getElementById("cc-project-sub");
+      // Pause banner removed — all 9 tabs are now built.
+
+      if (!plan) {
+        el.innerHTML = `<div class="cc-empty-state">.colaberry/plan.json is missing or unreadable — nothing to show yet.</div>`;
+        return;
+      }
+
+      sub.textContent = " · " + plan.project.name;
+
+      const totals = (progress && progress.totals) || null;
+      const badge = CommandCenter.sampleBadge();
+
+      // Sample mode ALWAYS shows a made-up-but-plausible overlay, regardless of
+      // whether real totals exist — that's the whole point of the toggle. Real
+      // mode always shows exactly what progress.json actually contains, honestly,
+      // with no sample badge.
+      const displayTotals = mode === "sample"
+        ? { stories_verified: 3, stories_total: plan.stories.length, criteria_passed: 9, criteria_total: 40, points_awarded: 180 }
+        : totals || { stories_verified: 0, stories_total: plan.stories.length, criteria_passed: 0, criteria_total: 0, points_awarded: 0 };
+
+      const releasesWithDates = plan.releases.filter((r) => r.starts_on && r.ends_on);
+      const today = new Date();
+      const currentRelease = releasesWithDates.find((r) => today >= new Date(r.starts_on) && today <= new Date(r.ends_on))
+        || plan.releases[0];
+
+      const scheduleBlock = plan.schedule
+        ? `${CommandCenter.formatDateOrUnset(plan.schedule.build_start)} → ${CommandCenter.formatDateOrUnset(plan.schedule.build_end)}
+           · Demo day ${CommandCenter.formatDateOrUnset(plan.schedule.demo_day)}
+           ${plan.schedule.demo_release_key ? `(release ${plan.schedule.demo_release_key.toUpperCase()})` : ""}`
+        : "Not scheduled yet — the platform hasn't set build dates for this plan.";
+
+      el.innerHTML = `
+        <div class="cc-panel-box">
+          <p style="margin:0 0 4px; color: var(--cc-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em;">${CommandCenter.esc(plan.project.name)}${badge}</p>
+          <p style="margin:0; font-size: 15px;">${CommandCenter.esc(plan.project.descriptor)}</p>
+        </div>
+
+        <div class="cc-grid">
+          <a class="cc-card" href="project-management.html?release=${encodeURIComponent(currentRelease.key)}">
+            <h3>Current release</h3>
+            <p class="cc-card-value">${currentRelease.key.toUpperCase()}</p>
+            <p>${CommandCenter.esc(currentRelease.name)} · ${CommandCenter.formatDateOrUnset(currentRelease.starts_on)} → ${CommandCenter.formatDateOrUnset(currentRelease.ends_on)}</p>
+          </a>
+          <a class="cc-card" href="project-management.html">
+            <h3>Stories verified${badge}</h3>
+            <p class="cc-card-value">${displayTotals.stories_verified} of ${displayTotals.stories_total}</p>
+            <p>Across the full programme (r0–r4)</p>
+          </a>
+          <a class="cc-card" href="knowledge-base.html">
+            <h3>Criteria passed${badge}</h3>
+            <p class="cc-card-value">${displayTotals.criteria_passed} of ${displayTotals.criteria_total}</p>
+            <p>Acceptance criteria confirmed by the platform</p>
+          </a>
+          <a class="cc-card" href="project-management.html">
+            <h3>Points awarded${badge}</h3>
+            <p class="cc-card-value">${displayTotals.points_awarded}</p>
+            <p>${mode === "sample" ? "Illustrative only" : "Nothing verified yet"}</p>
+          </a>
+        </div>
+
+        <div class="cc-panel-box" style="margin-top:20px;">
+          <h3 style="margin-top:0;">Build window</h3>
+          <p style="color: var(--cc-muted); font-size: 13px; margin: 0;">
+            ${scheduleBlock}
+          </p>
+        </div>
+      `;
+    }
+
+    CommandCenter.init("overview", renderOverview);
+  </script>
+</body>
+</html>

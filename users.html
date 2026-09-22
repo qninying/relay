@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relay — Users &amp; Use Case</title>
+<link rel="stylesheet" href="assets/command-center.css?v=2" />
+</head>
+<body>
+  <header class="cc-header">
+    <div class="cc-header-top">
+      <div class="cc-brand">Relay Command Center<span class="cc-brand-sub" id="cc-project-sub"></span></div>
+      <div class="cc-mode-toggle" id="cc-mode-toggle"></div>
+    </div>
+    <div class="cc-data-as-of" id="cc-data-as-of">Loading…</div>
+    <nav class="cc-nav" id="cc-nav"></nav>
+  </header>
+
+  <main>
+    <h1 class="cc-page-title">Users &amp; Use Case</h1>
+    <p class="cc-page-desc">Who this is for, and what they're trying to get done — taken from the roles your own stories are written for.</p>
+    <div id="cc-content">Loading…</div>
+  </main>
+
+  <script src="assets/command-center.js?v=2"></script>
+  <script>
+    function matchesRole(narrative, role) {
+      const n = narrative.toLowerCase();
+      const r = role.toLowerCase();
+      return n.startsWith(`as a ${r}`) || n.startsWith(`as an ${r}`);
+    }
+
+    function render({ plan, progress }) {
+      const el = document.getElementById("cc-content");
+      const sub = document.getElementById("cc-project-sub");
+      if (!plan) { el.innerHTML = `<div class="cc-empty-state">.colaberry/plan.json is missing or unreadable.</div>`; return; }
+      sub.textContent = " · " + plan.project.name;
+
+      const roles = (plan.derived && plan.derived.roles) || [];
+      const roleParam = CommandCenter.getParam("role");
+      const progressById = new Map((progress?.stories || []).map((s) => [s.id, s]));
+
+      if (roleParam) {
+        const stories = plan.stories.filter((s) => matchesRole(s.narrative, roleParam));
+        el.innerHTML = `
+          <p><a href="users.html">&larr; All roles</a></p>
+          <h2 style="margin: 16px 0 4px;">${CommandCenter.esc(roleParam)}</h2>
+          <p style="color: var(--cc-muted); margin: 0 0 16px;">${stories.length} ${stories.length === 1 ? "story" : "stories"} written for this role.</p>
+        ` + stories.map((s) => {
+          const state = progressById.get(s.id)?.verification?.state || "not_started";
+          return `
+            <div class="cc-panel-box">
+              <p style="margin:0 0 4px; font-size:12px; color:var(--cc-muted);">${CommandCenter.esc(s.id)} · ${CommandCenter.esc(s.release)} · ${CommandCenter.statusDot(state)}${CommandCenter.esc(state)}</p>
+              <p style="margin:0; font-weight:600;">${CommandCenter.esc(s.title)}</p>
+              <p style="margin:6px 0 0; color: var(--cc-muted); font-size:13px;">${CommandCenter.esc(s.narrative)}</p>
+            </div>
+          `;
+        }).join("");
+        return;
+      }
+
+      if (roles.length === 0) {
+        el.innerHTML = `<div class="cc-empty-state">No roles derived from this plan yet.</div>`;
+        return;
+      }
+
+      el.innerHTML = `<div class="cc-grid">` + roles.map((r) => {
+        const count = plan.stories.filter((s) => matchesRole(s.narrative, r)).length;
+        return `
+          <a class="cc-card" href="users.html?role=${encodeURIComponent(r)}">
+            <h3>${CommandCenter.esc(r)}</h3>
+            <p class="cc-card-value">${count}</p>
+            <p>${count === 1 ? "story" : "stories"} written for this role</p>
+          </a>
+        `;
+      }).join("") + `</div>`;
+    }
+    CommandCenter.init("users", render);
+  </script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relay — Project Management</title>
+<link rel="stylesheet" href="assets/command-center.css?v=2" />
+<style>
+  .cc-gantt { margin: 16px 0 28px; }
+  .cc-gantt-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 13px; }
+  .cc-gantt-label { width: 190px; flex-shrink: 0; padding-right: 10px; }
+  .cc-gantt-track { position: relative; flex: 1; height: 22px; background: var(--cc-accent-weak); border-radius: 6px; }
+  .cc-gantt-bar { position: absolute; top: 0; height: 100%; border-radius: 6px; background: var(--cc-accent); }
+  .cc-gantt-bar.cc-roadmap { background: var(--cc-grey-dot); opacity: 0.6; }
+  .cc-gantt-bar a { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+  <header class="cc-header">
+    <div class="cc-header-top">
+      <div class="cc-brand">Relay Command Center<span class="cc-brand-sub" id="cc-project-sub"></span></div>
+      <div class="cc-mode-toggle" id="cc-mode-toggle"></div>
+    </div>
+    <div class="cc-data-as-of" id="cc-data-as-of">Loading…</div>
+    <nav class="cc-nav" id="cc-nav"></nav>
+  </header>
+
+  <main>
+    <h1 class="cc-page-title">Project Management</h1>
+    <p class="cc-page-desc">Releases, stories, and due dates — real ones, not placeholders.</p>
+    <div id="cc-content">Loading…</div>
+  </main>
+
+  <script src="assets/command-center.js?v=2"></script>
+  <script>
+    function dayDiff(a, b) {
+      return (new Date(b) - new Date(a)) / (1000 * 60 * 60 * 24);
+    }
+
+    function renderGantt(plan) {
+      const releases = plan.releases || [];
+      const dated = releases.filter((r) => r.starts_on && r.ends_on);
+      if (dated.length === 0) return `<div class="cc-empty-state">No release has both a start and end date yet.</div>`;
+
+      const rangeStart = dated.reduce((min, r) => (r.starts_on < min ? r.starts_on : min), dated[0].starts_on);
+      const rangeEnd = dated.reduce((max, r) => (r.ends_on > max ? r.ends_on : max), dated[0].ends_on);
+      const totalDays = Math.max(dayDiff(rangeStart, rangeEnd), 1);
+
+      return `<div class="cc-gantt">` + dated.map((r) => {
+        const offset = (dayDiff(rangeStart, r.starts_on) / totalDays) * 100;
+        const width = Math.max((dayDiff(r.starts_on, r.ends_on) / totalDays) * 100, 2);
+        return `
+          <div class="cc-gantt-row">
+            <div class="cc-gantt-label"><strong>${CommandCenter.esc(r.key.toUpperCase())}</strong> ${CommandCenter.esc(r.name)}${r.is_demo_target ? ' <span class="cc-tag">demo target</span>' : ""}</div>
+            <div class="cc-gantt-track">
+              <div class="cc-gantt-bar${r.is_demo_target ? "" : " cc-roadmap"}" style="left:${offset}%; width:${width}%;" title="${CommandCenter.esc(r.starts_on)} → ${CommandCenter.esc(r.ends_on)}">
+                <a href="project-management.html?release=${encodeURIComponent(r.key)}" aria-label="${CommandCenter.esc(r.key.toUpperCase())} detail"></a>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("") + `</div>`;
+    }
+
+    function renderTaskList(plan, progress, filterKey) {
+      const progressById = new Map((progress?.stories || []).map((s) => [s.id, s]));
+      const releases = (plan.releases || []).filter((r) => !filterKey || r.key === filterKey);
+      return releases.map((r) => {
+        const stories = (r.story_ids || []).map((id) => (plan.stories || []).find((s) => s.id === id)).filter(Boolean);
+        return `
+          <div class="cc-panel-box">
+            <h3 style="margin-top:0;">${CommandCenter.esc(r.key.toUpperCase())} · ${CommandCenter.esc(r.name)}</h3>
+            <p style="color: var(--cc-muted); font-size:13px; margin:0 0 12px;">${CommandCenter.esc(r.goal)}</p>
+            <table class="cc-table">
+              <thead><tr><th>Story</th><th>Due</th><th>Baseline due</th><th>Status</th></tr></thead>
+              <tbody>
+                ${stories.map((s) => {
+                  const state = progressById.get(s.id)?.verification?.state || "not_started";
+                  const slipped = s.due_on !== s.due_baseline_on;
+                  return `
+                    <tr>
+                      <td><a href="project-management.html?id=${encodeURIComponent(s.id)}">${CommandCenter.esc(s.id)}</a> — ${CommandCenter.esc(s.title)}</td>
+                      <td>${CommandCenter.formatDateOrUnset(s.due_on)}</td>
+                      <td>${CommandCenter.formatDateOrUnset(s.due_baseline_on)}${slipped ? ' <span class="cc-tag" style="color:var(--cc-warn);border-color:var(--cc-warn);">slipped</span>' : ""}</td>
+                      <td>${CommandCenter.statusDot(state)}${CommandCenter.esc(state)}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDetail(plan, progress, id) {
+      const story = (plan.stories || []).find((s) => s.id === id);
+      if (!story) {
+        return `<p><a href="project-management.html">&larr; Back</a></p><div class="cc-empty-state">No story with id "${CommandCenter.esc(id)}" in the plan.</div>`;
+      }
+      const p = (progress?.stories || []).find((s) => s.id === id);
+      const state = p?.verification?.state || "not_started";
+      const passed = p?.verification?.criteria_passed ?? 0;
+      const total = p?.verification?.criteria_total ?? story.acceptance.length;
+      const criteriaById = new Map((p?.criteria || []).map((c) => [c.text, c.passed]));
+
+      return `
+        <p><a href="project-management.html">&larr; All releases</a></p>
+        <h2 style="margin:16px 0 4px;">${CommandCenter.esc(story.id)} — ${CommandCenter.esc(story.title)}</h2>
+        <p style="color: var(--cc-muted); margin:0 0 4px;">${CommandCenter.esc(story.release)} · owner: ${CommandCenter.esc(story.owner_agent)} · ${CommandCenter.statusDot(state)}${CommandCenter.esc(state)} (${passed} of ${total} criteria)</p>
+        <p style="margin:12px 0 20px;">${CommandCenter.esc(story.narrative)}</p>
+        <div class="cc-panel-box">
+          <h3 style="margin-top:0;">Acceptance criteria</h3>
+          <ul style="margin:0; padding-left:20px; font-size:13px;">
+            ${story.acceptance.map((c) => `<li>${CommandCenter.statusDot(criteriaById.get(c) ? "verified" : "")}${CommandCenter.esc(c)}</li>`).join("")}
+          </ul>
+        </div>
+        <div class="cc-panel-box">
+          <h3 style="margin-top:0;">Fulfils</h3>
+          <p style="font-size:13px;">${(story.fulfills || []).map((r) => `<a href="knowledge-base.html#${encodeURIComponent(r)}" class="cc-tag">${CommandCenter.esc(r)}</a>`).join(" ")}</p>
+        </div>
+        ${story.blocked_by && story.blocked_by.length ? `<div class="cc-panel-box"><h3 style="margin-top:0;">Blocked by</h3><p style="font-size:13px;">${story.blocked_by.map((b) => CommandCenter.esc(b)).join(", ")}</p></div>` : ""}
+      `;
+    }
+
+    function renderReleaseDetail(plan, progress, key) {
+      const release = (plan.releases || []).find((r) => r.key === key);
+      if (!release) {
+        return `<p><a href="project-management.html">&larr; Back</a></p><div class="cc-empty-state">No release with key "${CommandCenter.esc(key)}" in the plan.</div>`;
+      }
+      return `
+        <p><a href="project-management.html">&larr; All releases</a></p>
+        <h2 style="margin:16px 0 4px;">${CommandCenter.esc(release.key.toUpperCase())} — ${CommandCenter.esc(release.name)}${release.is_demo_target ? ' <span class="cc-tag">demo target</span>' : ""}</h2>
+        <p style="color: var(--cc-muted); margin:0 0 4px;">${CommandCenter.formatDateOrUnset(release.starts_on)} → ${CommandCenter.formatDateOrUnset(release.ends_on)}</p>
+        <p style="margin:12px 0 20px;"><strong>Goal:</strong> ${CommandCenter.esc(release.goal)}</p>
+        <div class="cc-panel-box">
+          <h3 style="margin-top:0;">Done when you can show</h3>
+          <p style="font-size:13px; margin:0;">${CommandCenter.esc(release.demo)}</p>
+        </div>
+        ${renderTaskList(plan, progress, release.key)}
+      `;
+    }
+
+    function render({ plan, progress }) {
+      const el = document.getElementById("cc-content");
+      const sub = document.getElementById("cc-project-sub");
+      if (!plan) { el.innerHTML = `<div class="cc-empty-state">.colaberry/plan.json is missing or unreadable.</div>`; return; }
+      sub.textContent = " · " + plan.project.name;
+
+      const id = CommandCenter.getParam("id");
+      if (id) {
+        el.innerHTML = renderDetail(plan, progress, id);
+        return;
+      }
+
+      const releaseKey = CommandCenter.getParam("release");
+      if (releaseKey) {
+        el.innerHTML = renderReleaseDetail(plan, progress, releaseKey);
+        return;
+      }
+
+      const schedule = plan.schedule;
+      const scheduleLine = schedule
+        ? `Build ${CommandCenter.formatDateOrUnset(schedule.build_start)} → ${CommandCenter.formatDateOrUnset(schedule.build_end)} · Demo day ${CommandCenter.formatDateOrUnset(schedule.demo_day)}`
+        : "Not scheduled yet.";
+
+      el.innerHTML = `
+        <p style="color: var(--cc-muted); font-size:13px; margin:0 0 4px;">${scheduleLine}</p>
+        ${renderGantt(plan)}
+        ${renderTaskList(plan, progress)}
+      `;
+    }
+    CommandCenter.init("project-management", render);
+  </script>
+</body>
+</html>

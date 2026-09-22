@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relay — Guardrails</title>
+<link rel="stylesheet" href="assets/command-center.css?v=2" />
+</head>
+<body>
+  <header class="cc-header">
+    <div class="cc-header-top">
+      <div class="cc-brand">Relay Command Center<span class="cc-brand-sub" id="cc-project-sub"></span></div>
+      <div class="cc-mode-toggle" id="cc-mode-toggle"></div>
+    </div>
+    <div class="cc-data-as-of" id="cc-data-as-of">Loading…</div>
+    <nav class="cc-nav" id="cc-nav"></nav>
+  </header>
+
+  <main>
+    <h1 class="cc-page-title">Guardrails</h1>
+    <p class="cc-page-desc">What must never happen — and what actually enforces it.</p>
+    <div id="cc-content">Loading…</div>
+  </main>
+
+  <script src="assets/command-center.js?v=2"></script>
+  <script>
+    function render({ plan, progress }) {
+      const el = document.getElementById("cc-content");
+      const sub = document.getElementById("cc-project-sub");
+      if (!plan) { el.innerHTML = `<div class="cc-empty-state">.colaberry/plan.json is missing or unreadable.</div>`; return; }
+      sub.textContent = " · " + plan.project.name;
+
+      const guardrails = (plan.derived && plan.derived.guardrails) || [];
+
+      const extraCodeNote = `
+        <div class="cc-panel-box" style="margin-top:20px;">
+          <h3 style="margin-top:0;">Not plan-tracked, but real: <code>guardrails/</code> in this repo</h3>
+          <p style="color: var(--cc-muted); font-size:13px; margin:0 0 10px;">
+            Two guardrails exist as tested code, ahead of any requirement being typed
+            Safety — added because the risk was real, not because the plan asked for it:
+          </p>
+          <ul style="margin:0; padding-left:20px; font-size:13px;">
+            <li><code>outputContractGuardrail.ts</code> — rejects job output missing a required field, carrying a field the schema never declared, or containing an embedded-instruction pattern (a prompt-injection tripwire, since every worker will feed untrusted external content into an LLM call).</li>
+            <li><code>groundingGuardrail.ts</code> — rejects a generated summary with low lexical overlap against its own source, or a number the source never stated.</li>
+          </ul>
+          <p style="color: var(--cc-muted); font-size:12px; margin:10px 0 0;">Both pure and deterministic, 16/16 tests passing. Not yet wired into a running pipeline — no pipeline exists yet.</p>
+        </div>
+      `;
+
+      if (guardrails.length === 0) {
+        el.innerHTML = `
+          <div class="cc-empty-state">
+            <p style="margin:0 0 8px; font-weight:600;">No requirement is typed SAFE yet</p>
+            <p style="margin:0;">Every one of Relay's 18 requirements is Functional or Constraint —
+            none is classified as a Safety guardrail. That usually means a promise made in the
+            planning interview got recorded as a normal feature instead of an enforced guardrail.
+            Worth raising before this release ships, not after.</p>
+          </div>
+        ` + extraCodeNote;
+        return;
+      }
+
+      const badge = CommandCenter.sampleBadge();
+      el.innerHTML = `<div class="cc-grid">` + guardrails.map((g) => {
+        const req = (plan.requirements || []).find((r) => r.id === g.id);
+        const verification = req ? CommandCenter.verificationForRequirement(plan, progress, req) : { state: "unfulfilled", stories: [] };
+        return `
+          <div class="cc-card">
+            <h3>${CommandCenter.esc(g.id)}${badge}</h3>
+            <p>${CommandCenter.esc(g.statement)}</p>
+            <p style="margin-top:8px;">${CommandCenter.statusDot(verification.state === "enforced" ? "verified" : verification.state)}${CommandCenter.esc(verification.state)}</p>
+          </div>
+        `;
+      }).join("") + `</div>` + extraCodeNote;
+    }
+    CommandCenter.init("guardrails", render);
+  </script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+/* Relay Command Center — shared styles.
+   Palette lives here, in one place, per the brief: change these variables to
+   rebrand without touching any page. Neutral palette until a brand is chosen. */
+:root {
+  --cc-bg: #f4f5f7;
+  --cc-panel: #ffffff;
+  --cc-border: #e2e4e9;
+  --cc-text: #1a1d26;
+  --cc-muted: #6b7280;
+  --cc-accent: #2f5fd6;
+  --cc-accent-weak: #eaf0ff;
+  --cc-ok: #1a8a5f;
+  --cc-warn: #b5680a;
+  --cc-warn-bg: #fdf3e3;
+  --cc-danger: #c23b3b;
+  --cc-grey-dot: #9aa1ac;
+  --cc-radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--cc-bg);
+  color: var(--cc-text);
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+a { color: var(--cc-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.cc-header {
+  background: var(--cc-panel);
+  border-bottom: 1px solid var(--cc-border);
+  padding: 16px 32px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.cc-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cc-brand {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.cc-brand .cc-brand-sub {
+  font-weight: 400;
+  color: var(--cc-muted);
+  font-size: 13px;
+  margin-left: 8px;
+}
+
+.cc-mode-toggle {
+  display: flex;
+  border: 1px solid var(--cc-border);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.cc-mode-btn {
+  border: none;
+  background: var(--cc-panel);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--cc-muted);
+}
+
+.cc-mode-btn.active {
+  background: var(--cc-accent);
+  color: white;
+}
+
+.cc-data-as-of {
+  font-size: 12px;
+  color: var(--cc-muted);
+  margin-top: 8px;
+}
+
+.cc-data-as-of.cc-stale {
+  color: var(--cc-warn);
+  font-weight: 600;
+}
+
+.cc-nav {
+  display: flex;
+  gap: 4px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.cc-tab {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cc-muted);
+}
+
+.cc-tab:hover { background: var(--cc-accent-weak); text-decoration: none; }
+
+.cc-tab.active {
+  background: var(--cc-accent-weak);
+  color: var(--cc-accent);
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.cc-page-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.cc-page-desc {
+  color: var(--cc-muted);
+  margin: 0 0 24px;
+  max-width: 720px;
+}
+
+.cc-sample-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: var(--cc-warn-bg);
+  color: var(--cc-warn);
+  border: 1px solid var(--cc-warn);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.cc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.cc-card {
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  padding: 18px;
+  display: block;
+  color: var(--cc-text);
+}
+
+.cc-card:hover {
+  border-color: var(--cc-accent);
+  text-decoration: none;
+}
+
+.cc-card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.cc-card p {
+  margin: 0;
+  color: var(--cc-muted);
+  font-size: 13px;
+}
+
+.cc-card .cc-card-value {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 6px 0;
+}
+
+.cc-panel-box {
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.cc-empty-state {
+  background: var(--cc-panel);
+  border: 1px dashed var(--cc-border);
+  border-radius: var(--cc-radius);
+  padding: 40px;
+  text-align: center;
+  color: var(--cc-muted);
+}
+
+.cc-banner {
+  background: var(--cc-accent-weak);
+  border: 1px solid var(--cc-accent);
+  border-radius: var(--cc-radius);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+.cc-banner.cc-banner-pause {
+  background: var(--cc-warn-bg);
+  border-color: var(--cc-warn);
+  color: #7a4c08;
+}
+
+.cc-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cc-grey-dot);
+  margin-right: 6px;
+}
+
+.cc-dot.cc-dot-ok { background: var(--cc-ok); }
+.cc-dot.cc-dot-error { background: var(--cc-danger); }
+
+table.cc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table.cc-table th, table.cc-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--cc-border);
+}
+
+table.cc-table th {
+  color: var(--cc-muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.cc-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 100px;
+  border: 1px solid var(--cc-border);
+  color: var(--cc-muted);
+}
+
+.cc-tag.cc-tag-must { color: var(--cc-danger); border-color: var(--cc-danger); }
+.cc-tag.cc-tag-should { color: var(--cc-warn); border-color: var(--cc-warn); }
