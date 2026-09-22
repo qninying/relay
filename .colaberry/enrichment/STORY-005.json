@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-005",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-09-22T17:58:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "systems",
+      "value": "The SLO dashboard is served by a small standalone Node http server (dashboardServer.ts), not the MCP server or the Command Center's static Pages site - a third, separate live surface.",
+      "evidence": "src/dashboardServer.ts"
+    },
+    {
+      "dimension": "constraints",
+      "value": "Nothing persists metrics across a process restart - MetricsCollector is in-memory only. The dashboard cannot and does not show 24h/7d/30d historical ranges; only a rolling recent-activity window.",
+      "evidence": "src/metrics.ts, src/dashboard.html"
+    },
+    {
+      "dimension": "integrations",
+      "value": "The dashboard reads real DLQ depth from Redis (XLEN) when reachable, via an injected getDlqDepth provider - null, not a fabricated 0, when Redis isn't connected.",
+      "evidence": "src/dashboardServer.ts, src/runDashboard.ts"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Success rate and error budget use a rolling count-based window (default 50 requests), not an all-time average.",
+      "rationale": "an all-time average would hide a currently-unhealthy system behind a long healthy history - exactly the 'metrics are inaccurate' failure path this story has to handle.",
+      "evidence": "src/metrics.ts"
+    },
+    {
+      "statement": "The dashboard was rebuilt from a first flat-card pass into a structured enterprise layout (KPI summary, operational detail, needs-attention) after direct user feedback that the first version 'looks cheap.'",
+      "rationale": "visual quality and information hierarchy matter for a page meant to be read at a glance by an operator, not just functional correctness.",
+      "evidence": "src/dashboard.html"
+    },
+    {
+      "statement": "'Error budget left' is clamped to a 0% floor for display, even though the underlying remaining value can go arbitrarily negative once breached.",
+      "rationale": "found in review: a raw negative percentage (e.g. -173%) reads as a bug, not as 'badly over budget' - the CRITICAL badge and the red progress bar already communicate severity without a confusing number.",
+      "evidence": "src/dashboard.html"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The dashboard has only ever shown simulated job activity (runDashboard.ts's synthetic generator) and a simulated DLQ - it has never been pointed at Relay's real pipeline (queue.ts + callExternalApiAndPersist) processing real jobs, since nothing wires a running worker to this MetricsCollector yet.",
+      "evidence": "src/runDashboard.ts"
+    },
+    {
+      "statement": "No page without a <meta name=\"viewport\"> tag was mobile-testable at all until this was found and fixed in review - without it, mobile browsers render at a 980px virtual viewport regardless of the physical screen width, so the responsive CSS never triggered.",
+      "evidence": "src/dashboard.html"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/metrics.test.ts" },
+    { "kind": "test", "ref": "src/dashboardServer.test.ts" },
+    { "kind": "test", "ref": "src/processJob.test.ts" }
+  ],
+  "measurementEvents": []
+}

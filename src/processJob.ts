@@ -7,6 +7,7 @@
 
 import { logJson } from "./logger.js";
 import type { IdempotencyStore } from "./idempotencyStore.js";
+import type { MetricsCollector } from "./metrics.js";
 
 export interface Job {
   id: string;
@@ -25,7 +26,11 @@ export type ProcessResult =
   | { status: "skipped_duplicate" }
   | { status: "failed"; errorClass: string };
 
-export function processJob(job: Job, store: IdempotencyStore): ProcessResult {
+// metrics is optional (STORY-005) and backward compatible — omitting it
+// keeps STORY-001/002/003's exact original behavior, no metrics recorded.
+export function processJob(job: Job, store: IdempotencyStore, metrics?: MetricsCollector): ProcessResult {
+  const startedAt = Date.now();
+
   logJson("info", {
     event: "job_received",
     correlationId: job.correlationId,
@@ -44,6 +49,7 @@ export function processJob(job: Job, store: IdempotencyStore): ProcessResult {
       errorClass,
       context: { jobId: job.id },
     });
+    metrics?.record("failure", Date.now() - startedAt, job.correlationId);
     return { status: "failed", errorClass };
   }
 
@@ -54,6 +60,10 @@ export function processJob(job: Job, store: IdempotencyStore): ProcessResult {
       outcome: "skipped",
       context: { jobId: job.id, idempotencyKey: job.idempotencyKey },
     });
+    // Deliberately not recorded in SLO metrics: a correctly-skipped
+    // duplicate is neither a new success nor a failure of processing — it's
+    // the idempotency guard doing its job. Counting it either way would
+    // distort the success rate against what actually happened.
     return { status: "skipped_duplicate" };
   }
 
@@ -63,5 +73,6 @@ export function processJob(job: Job, store: IdempotencyStore): ProcessResult {
     outcome: "success",
     context: { jobId: job.id },
   });
+  metrics?.record("success", Date.now() - startedAt, job.correlationId);
   return { status: "processed" };
 }

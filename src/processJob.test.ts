@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { processJob, type Job } from "./processJob.js";
 import { InMemoryIdempotencyStore, type IdempotencyStore } from "./idempotencyStore.js";
+import { MetricsCollector } from "./metrics.js";
 
 function baseJob(overrides: Partial<Job> = {}): Job {
   return {
@@ -99,5 +100,56 @@ describe("processJob", () => {
     processJob(job, store);
 
     expect(job).toEqual(snapshot);
+  });
+
+  it("records a successful job in the metrics collector when one is provided (STORY-005 wiring)", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const store = new InMemoryIdempotencyStore();
+    const metrics = new MetricsCollector({ windowSize: 10, targetSuccessRate: 0.99 });
+
+    processJob(baseJob(), store, metrics);
+
+    const snapshot = metrics.snapshot();
+    expect(snapshot.totalRequests).toBe(1);
+    expect(snapshot.successCount).toBe(1);
+  });
+
+  it("records a failed job in the metrics collector, not a success", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const brokenStore: IdempotencyStore = {
+      claim: () => {
+        throw new Error("store unavailable");
+      },
+    };
+    const metrics = new MetricsCollector({ windowSize: 10, targetSuccessRate: 0.99 });
+
+    processJob(baseJob(), brokenStore, metrics);
+
+    const snapshot = metrics.snapshot();
+    expect(snapshot.totalRequests).toBe(1);
+    expect(snapshot.failureCount).toBe(1);
+    expect(snapshot.successCount).toBe(0);
+  });
+
+  it("does not record a skipped duplicate in the metrics collector at all", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const store = new InMemoryIdempotencyStore();
+    const metrics = new MetricsCollector({ windowSize: 10, targetSuccessRate: 0.99 });
+    const job = baseJob();
+
+    processJob(job, store, metrics); // processed -> recorded
+    processJob(job, store, metrics); // skipped_duplicate -> NOT recorded
+
+    expect(metrics.snapshot().totalRequests).toBe(1);
+  });
+
+  it("still works exactly as before when no metrics collector is passed (backward compatible)", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const store = new InMemoryIdempotencyStore();
+
+    const result = processJob(baseJob(), store);
+
+    expect(result).toEqual({ status: "processed" });
   });
 });
