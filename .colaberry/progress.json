@@ -3,13 +3,13 @@
   "project": "Relay: AI Agent Job Orchestration Platform",
   "totals": {
     "stories_total": 13,
-    "stories_verified": 1,
+    "stories_verified": 3,
     "stories_submitted": 0,
-    "stories_in_progress": 12,
+    "stories_in_progress": 10,
     "stories_not_started": 0,
     "criteria_total": 41,
-    "criteria_passed": 5,
-    "points_awarded": 1672
+    "criteria_passed": 11,
+    "points_awarded": 1796
   },
   "stories": [
     {
@@ -34,7 +34,7 @@
           "passed": true
         },
         {
-          "text": "Trust \u2014 no tab shows a number, a connection or a result the project has not actually produced.",
+          "text": "Trust — no tab shows a number, a connection or a result the project has not actually produced.",
           "passed": true
         }
       ],
@@ -102,19 +102,15 @@
       "notes": "processJob() logs job_received then job_processed/job_skipped_duplicate/job_failed, every line carrying the caller's correlation ID (REQ-005). Idempotency via an atomic InMemoryIdempotencyStore.claim() (REQ-002) - a re-delivered job with the same idempotency key returns skipped_duplicate rather than reprocessing, verified even when the job id differs. Failure paths covered: a throwing store returns status failed and logs job_failed with an error class; a circular log context is caught by the logger itself rather than crashing job processing. 15/15 tests passing, tsc --noEmit clean. In-memory only - STORY-002 swaps in the real Redis Streams/SQS-backed store behind the same IdempotencyStore interface, not built here per the story's own scope note.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 129,
-        "outstanding": [
-          "Given a job in the queue, When it is processed, Then it is logged with a correlation ID",
-          "Given a re-delivered job, When it is processed, Then it does not double-process",
-          "Trust: All job processing is logged with correlation IDs"
-        ]
+        "verified_at": "2026-09-22T15:32:17.040Z",
+        "commit_sha": "8c371ac10d79d238910276add1518823272872b6",
+        "commit_url": "https://github.com/qninying/relay/commit/8c371ac10d79d238910276add1518823272872b6",
+        "commit_at": "2026-09-22T15:32:08Z",
+        "points_awarded": 191,
+        "outstanding": []
       }
     },
     {
@@ -150,19 +146,15 @@
       "notes": "RedisStreamQueue wraps real Redis Streams (XADD/XGROUP/XREADGROUP/XACK) via ioredis, run locally through docker-compose.yml - no AWS credentials available so SQS was not an option, Redis Streams satisfies REQ-001's either/or. dequeueOne() logs job_dequeued with the correlation ID (criterion 1) and, when job.confidence is below a placeholder threshold, job_low_confidence with the same correlation ID (criterion 2, REQ-011). Tests run against the actual Redis container, not mocked, including a real broken-connection failure path. Found and fixed two real bugs in review: ioredis emits its own console.error on an unhandled connection error (was doubling the failure-path test's assertion until an error listener was attached), and a default `import Redis from \"ioredis\"` fails strict tsc under Node16 module resolution even though tsx/vitest accepted it silently - switched to the named import. 22/22 tests passing, tsc --noEmit clean. Follow-up: added src/endToEnd.test.ts, composing queue.ts with STORY-001's processJob.ts against the real Redis container - proves enqueue -> dequeue -> idempotency check -> log works as one flow, including a re-delivered job producing exactly one job_processed and one job_skipped_duplicate with a consistent correlation ID. 25/25 tests passing now.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 129,
-        "outstanding": [
-          "Given a job is submitted, When it is processed, Then it is logged with its correlation ID",
-          "Given a job is processed, When it is low-confidence, Then it is logged with its correlation ID",
-          "Trust: Given a job is processed, Then its processing is logged for traceability"
-        ]
+        "verified_at": "2026-09-22T15:44:21.463Z",
+        "commit_sha": "d69aaa56cf9ee43a7d92b7f9695b81a660259e94",
+        "commit_url": "https://github.com/qninying/relay/commit/d69aaa56cf9ee43a7d92b7f9695b81a660259e94",
+        "commit_at": "2026-09-22T15:44:12Z",
+        "points_awarded": 191,
+        "outstanding": []
       }
     },
     {
