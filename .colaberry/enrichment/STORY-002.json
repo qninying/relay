@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-002",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-09-22T16:42:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "systems",
+      "value": "The durable job queue is Redis Streams, run locally via Docker (docker-compose.yml) rather than SQS — no AWS credentials are available in this environment.",
+      "evidence": "docker-compose.yml, src/queue.ts"
+    },
+    {
+      "dimension": "integrations",
+      "value": "Queue access goes through ioredis, using a consumer group so message delivery is acknowledged explicitly (XACK) rather than assumed.",
+      "evidence": "src/queue.ts"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "The low-confidence threshold used to trigger REQ-011's logging is a placeholder (0.5), not a tuned product value.",
+      "rationale": "STORY-002's job is to prove the logging happens; the real threshold is a classification-taxonomy decision that belongs to REQ-017/STORY-011.",
+      "evidence": "src/queue.ts"
+    },
+    {
+      "statement": "dequeueOne() reads and acks a single message rather than running a standing consumer loop.",
+      "rationale": "a long-running loop with graceful shutdown and multiple workers is STORY-006's scope (autoscaling), not this story's.",
+      "evidence": "src/queue.ts"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "No DLQ or retry policy yet — an unacked or failed message has no automated recovery path.",
+      "evidence": "src/queue.ts"
+    },
+    {
+      "statement": "No shared production Redis-client factory exists — RedisStreamQueue takes an already-connected client via constructor injection, so whoever builds the worker entrypoint owns connecting it (and attaching its own error listener, per a real bug found in review: ioredis logs its own unhandled-error line via console.error if nothing is listening).",
+      "evidence": "src/queue.ts, src/queue.test.ts"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/queue.test.ts" }
+  ],
+  "measurementEvents": []
+}

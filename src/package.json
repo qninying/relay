@@ -8,6 +8,9 @@
     "build": "tsc",
     "test": "vitest run"
   },
+  "dependencies": {
+    "ioredis": "^5.4.2"
+  },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "tsx": "^4.19.2",

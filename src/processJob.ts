@@ -13,6 +13,11 @@ export interface Job {
   correlationId: string;
   idempotencyKey: string;
   payload: unknown;
+  // Optional: set for classification jobs. STORY-002 logs low-confidence jobs
+  // (REQ-011) when this crosses LOW_CONFIDENCE_THRESHOLD in queue.ts; routing
+  // a low-confidence job to a review queue instead of the DLQ is REQ-010,
+  // STORY-007's job, not this one.
+  confidence?: number;
 }
 
 export type ProcessResult =
