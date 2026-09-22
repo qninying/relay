@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Build output
+dist/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# OS cruft
+.DS_Store
