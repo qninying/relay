@@ -1,0 +1,17 @@
+{
+  "name": "relay-core",
+  "version": "0.1.0",
+  "description": "Relay's core job-processing pipeline — queue handling, idempotency, structured logging.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
+  }
+}

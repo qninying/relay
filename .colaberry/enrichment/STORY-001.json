@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-001",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-09-22T16:05:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "constraints",
+      "value": "Idempotency is enforced by an in-memory claim-based store; no external queue (Redis Streams or SQS) is connected yet.",
+      "evidence": "src/idempotencyStore.ts"
+    },
+    {
+      "dimension": "delivery_profile",
+      "value": "Structured logs are written as single-line JSON to stdout/stderr; nothing ships them to a log aggregator yet.",
+      "evidence": "src/logger.ts"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Idempotency uses one atomic claim() call rather than a separate has()-then-set() pair.",
+      "rationale": "a check-then-set pair would race under concurrent re-delivery of the same job; a single atomic operation cannot.",
+      "evidence": "src/idempotencyStore.ts"
+    },
+    {
+      "statement": "A logging failure (e.g. a circular payload passed as context) is caught and replaced with a fallback log line instead of being allowed to throw.",
+      "rationale": "logging must never be the reason a job fails to process — that's one of this story's own named failure paths.",
+      "evidence": "src/logger.ts"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The idempotency store is in-memory only: a process restart loses every claimed key, and it is not shared across multiple worker processes.",
+      "evidence": "src/idempotencyStore.ts"
+    },
+    {
+      "statement": "No real job queue or external API call exists yet — 'processing' in this story is the idempotency check and its log trail, not real work.",
+      "evidence": "src/processJob.ts"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/processJob.test.ts" },
+    { "kind": "test", "ref": "src/idempotencyStore.test.ts" },
+    { "kind": "test", "ref": "src/logger.test.ts" }
+  ],
+  "measurementEvents": []
+}
