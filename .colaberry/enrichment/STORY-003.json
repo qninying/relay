@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-003",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-09-22T17:20:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "constraints",
+      "value": "Every external API call must go through withReliability (explicit timeout, capped exponential-backoff retry) composed with a CircuitBreaker, per REQ-003.",
+      "evidence": "src/withReliability.ts, src/callExternalApi.ts"
+    },
+    {
+      "dimension": "constraints",
+      "value": "Output is validated against a declared JSON schema (guardrails/outputContractGuardrail.ts) before any persist attempt; a validation failure blocks the persist entirely rather than persisting a warning-flagged record.",
+      "evidence": "src/persistOutput.ts"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Ported the circuit breaker and timeout/retry pattern from an existing, already-tested implementation (CoreOps's mcp-server/src/reliability/) rather than designing a new one.",
+      "rationale": "the pattern was already proven correct there; re-deriving it from scratch would just risk reintroducing bugs already fixed once.",
+      "evidence": "src/circuitBreaker.ts, src/withReliability.ts"
+    },
+    {
+      "statement": "guardrails/outputContractGuardrail.ts, built two stories earlier with no caller, is now called from persistOutput.ts instead of writing new validation logic.",
+      "rationale": "the guardrail already did exactly what REQ-012 asks for; it just needed a caller.",
+      "evidence": "src/persistOutput.ts"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "callExternalApiAndPersist has never been exercised against a real external API - only a mock apiCall function in tests, since no real external integration target exists in this project yet.",
+      "evidence": "src/callExternalApi.test.ts"
+    },
+    {
+      "statement": "\"Persisting\" is still a logged stub, not a real database write - no persistence layer exists yet.",
+      "evidence": "src/persistOutput.ts"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/circuitBreaker.test.ts" },
+    { "kind": "test", "ref": "src/withReliability.test.ts" },
+    { "kind": "test", "ref": "src/persistOutput.test.ts" },
+    { "kind": "test", "ref": "src/callExternalApi.test.ts" }
+  ],
+  "measurementEvents": []
+}

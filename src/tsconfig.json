@@ -4,13 +4,13 @@
     "module": "Node16",
     "moduleResolution": "Node16",
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "..",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "../guardrails/outputContractGuardrail.ts"],
   "exclude": ["dist", "node_modules"]
 }

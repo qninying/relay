@@ -164,20 +164,35 @@
       "criteria": [
         {
           "text": "Given an API call is made, When the circuit breaker is closed, Then the call proceeds",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given an API call is made, When the circuit breaker is open, Then the call is blocked",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Given output is generated, Then it is validated against the JSON schema before persisting",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "src/circuitBreaker.ts",
+        "src/circuitBreaker.test.ts",
+        "src/withReliability.ts",
+        "src/withReliability.test.ts",
+        "src/persistOutput.ts",
+        "src/persistOutput.test.ts",
+        "src/callExternalApi.ts",
+        "src/callExternalApi.test.ts",
+        "src/tsconfig.json"
+      ],
+      "tests_added": [
+        "src/circuitBreaker.test.ts",
+        "src/withReliability.test.ts",
+        "src/persistOutput.test.ts",
+        "src/callExternalApi.test.ts"
+      ],
+      "notes": "circuitBreaker.ts/withReliability.ts ported from CoreOps's proven mcp-server/src/reliability/ pattern (closed/open/half-open state machine, sliding failure window, timeout+backoff retry). persistOutput.ts gives the existing guardrails/outputContractGuardrail.ts its first real caller - validates before persisting (REQ-012), refuses to persist on any violation. callExternalApiAndPersist composes both: closed breaker lets the call proceed (criterion 1), open breaker blocks it fail-fast without invoking the call (criterion 2), and whatever the call returns is validated before persisting (criterion 3/trust) - tested as one composed flow, not just each piece alone. 48/48 tests passing, tsc --noEmit clean. src/tsconfig.json's rootDir changed to '..' with guardrails/outputContractGuardrail.ts added to include, matching the exact cross-package relative-import pattern CoreOps's mcp-server already uses for its own guardrails. Limitation: never exercised against a real external API, only a mock apiCall in tests - no real integration target exists in this project yet.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",
