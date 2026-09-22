@@ -1,0 +1,16 @@
+{
+  "name": "relay-guardrails",
+  "version": "0.1.0",
+  "description": "Safety guardrails — pure, deterministic pre-persist checks for AI agent job output.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
+  }
+}
