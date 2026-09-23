@@ -9,7 +9,7 @@
     "stories_not_started": 0,
     "criteria_total": 41,
     "criteria_passed": 20,
-    "points_awarded": 1982
+    "points_awarded": 2210
   },
   "stories": [
     {
@@ -62,7 +62,7 @@
         "commit_sha": "970d6d329252a317031941e9e818a6a8ff580552",
         "commit_url": "https://github.com/qninying/relay/commit/970d6d329252a317031941e9e818a6a8ff580552",
         "commit_at": "2026-09-22T15:14:30Z",
-        "points_awarded": 191,
+        "points_awarded": 248,
         "outstanding": []
       }
     },
@@ -109,7 +109,7 @@
         "commit_sha": "8c371ac10d79d238910276add1518823272872b6",
         "commit_url": "https://github.com/qninying/relay/commit/8c371ac10d79d238910276add1518823272872b6",
         "commit_at": "2026-09-22T15:32:08Z",
-        "points_awarded": 191,
+        "points_awarded": 248,
         "outstanding": []
       }
     },
@@ -202,7 +202,7 @@
         "commit_sha": "1f7d6af3e3dbb65472db676f49e629b8d42f0f01",
         "commit_url": "https://github.com/qninying/relay/commit/1f7d6af3e3dbb65472db676f49e629b8d42f0f01",
         "commit_at": "2026-09-22T16:04:21Z",
-        "points_awarded": 191,
+        "points_awarded": 248,
         "outstanding": []
       }
     },
@@ -477,7 +477,7 @@
         "commit_sha": null,
         "commit_url": null,
         "commit_at": null,
-        "points_awarded": 129,
+        "points_awarded": 186,
         "outstanding": [
           "Given the system is deployed, When it is running, Then job success rate and latency are tracked",
           "Given the system is deployed, When a status request is made, Then a plain-language status view is provided",
