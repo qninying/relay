@@ -20,6 +20,10 @@ primary_region = "iad"
   RELAY_MAX_WORKERS = "3"
   RELAY_JOBS_PER_WORKER = "25"
   RELAY_SAMPLE_INTERVAL_MS = "60000"
+  # Console (STORY-101): HTTPS here, so the session cookie is Secure; Fly's
+  # proxy sets Fly-Client-IP, which the login lockout uses per IP.
+  RELAY_COOKIE_SECURE = "true"
+  RELAY_TRUST_PROXY = "true"
   RELAY_TARGET_SUCCESS_RATE = "0.9"
 
 [http_service]

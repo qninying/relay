@@ -21,6 +21,7 @@ import type { MetricsCollector } from "./metrics.js";
 import type { MonitoringSampler } from "./monitoringSampler.js";
 import { buildStatus, renderStatusHtml } from "./statusView.js";
 import { logJson } from "./logger.js";
+import type { ConsoleHandler } from "./console/routes.js";
 
 const DASHBOARD_HTML = path.join(path.dirname(fileURLToPath(import.meta.url)), "dashboard.html");
 
@@ -32,6 +33,9 @@ export interface StatusServerDeps {
   targetSuccessRate: number;
   dlqStream: string;
   now?: () => number;
+  // Analyst console (STORY-101+): owns every /console path, including its
+  // POST routes. Everything else here stays read-only.
+  console?: ConsoleHandler;
 }
 
 const SECURITY_HEADERS = {
@@ -71,6 +75,19 @@ export function createStatusServer(deps: StatusServerDeps): http.Server {
 
   return http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (deps.console && (url.pathname === "/console" || url.pathname.startsWith("/console/"))) {
+      deps.console(req, res, url).catch((error) => {
+        logJson("error", {
+          event: "console_request_failed",
+          correlationId: "http",
+          outcome: "failure",
+          errorClass: error instanceof Error ? error.constructor.name : "UnknownError",
+          context: { path: url.pathname },
+        });
+        if (!res.headersSent) send(res, 500, "text/plain", "Internal error.");
+      });
+      return;
+    }
     if (req.method !== "GET" && req.method !== "HEAD") return send(res, 405, "text/plain", "Read-only: GET only.");
 
     const handle = async () => {

@@ -21,6 +21,10 @@ import { MonitoringSampler } from "./monitoringSampler.js";
 import { createStatusServer } from "./statusServer.js";
 import { logJson } from "./logger.js";
 import { STREAM_DEFAULTS } from "./streams.js";
+import { createConsoleHandler } from "./console/routes.js";
+import { OperatorStore } from "./console/auth/operators.js";
+import { SessionStore } from "./console/auth/sessions.js";
+import { LoginLimiter } from "./console/auth/loginLimiter.js";
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -81,7 +85,15 @@ async function main(): Promise<void> {
     tracker,
     workerCount: () => pool.size(),
   });
-  const server = createStatusServer({ redis, sampler, metrics, sampleIntervalMs, targetSuccessRate, dlqStream });
+  // STORY-101: analyst console (login with password + authenticator code).
+  const consoleHandler = createConsoleHandler({
+    operators: new OperatorStore(redis),
+    sessions: new SessionStore(redis),
+    limiter: new LoginLimiter(redis),
+    cookieSecure: process.env.RELAY_COOKIE_SECURE === "true",
+    trustProxy: process.env.RELAY_TRUST_PROXY === "true",
+  });
+  const server = createStatusServer({ redis, sampler, metrics, sampleIntervalMs, targetSuccessRate, dlqStream, console: consoleHandler });
 
   autoscaler.start(num("RELAY_SCALE_INTERVAL_MS", 5000));
   await sampler.sampleOnce();
