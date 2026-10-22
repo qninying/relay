@@ -19,6 +19,8 @@ import type { Job } from "./processJob.js";
 // taxonomy (REQ-017, STORY-011), not decided here.
 const LOW_CONFIDENCE_THRESHOLD = 0.5;
 
+export class BacklogUnknownError extends Error {}
+
 export interface EnqueueResult {
   messageId: string;
 }
@@ -61,6 +63,28 @@ export class RedisStreamQueue {
       });
       throw error;
     }
+  }
+
+  // STORY-006: how many entries this group has not yet been delivered, i.e.
+  // the queue depth the autoscaler scales on. Uses the consumer group's own
+  // `lag` (Redis 7+), not XLEN, since XLEN also counts entries that were
+  // already delivered. Redis reports lag as nil when it can't compute it (for
+  // example after XDEL in the undelivered range). That throws rather than
+  // returning 0, because a fabricated 0 would make the autoscaler scale down
+  // a backlog it simply can't see.
+  async getBacklog(): Promise<number> {
+    const groups = (await this.redis.xinfo("GROUPS", this.streamKey)) as unknown[][];
+    for (const group of groups) {
+      const fields = new Map<string, unknown>();
+      for (let i = 0; i < group.length; i += 2) fields.set(String(group[i]), group[i + 1]);
+      if (fields.get("name") !== this.groupName) continue;
+      const lag = fields.get("lag");
+      if (typeof lag !== "number") {
+        throw new BacklogUnknownError(`Redis could not compute lag for group ${this.groupName}`);
+      }
+      return lag;
+    }
+    throw new BacklogUnknownError(`Consumer group ${this.groupName} does not exist on ${this.streamKey}`);
   }
 
   // Returns null when there's nothing to read — not an error, just an empty

@@ -27,8 +27,8 @@ the same criteria out of `.colaberry/progress.json`, which Claude Code keeps in
 step (see the managed block in CLAUDE.md). Ticking something you have not
 actually met only misleads you.
 
-- [ ] Given job load increases, When workers are needed, Then they are autoscaled
-- [ ] Given job load decreases, When workers are not needed, Then they are scaled down
-- [ ] Trust: Autoscaling events are logged with correlation IDs
+- [x] Given job load increases, When workers are needed, Then they are autoscaled
+- [x] Given job load decreases, When workers are not needed, Then they are scaled down
+- [x] Trust: Autoscaling events are logged with correlation IDs
 
 When every box above is ticked, stop and show the demo.

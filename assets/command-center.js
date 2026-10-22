@@ -17,12 +17,18 @@ const TABS = [
 
 const MODE_KEY = "cc-mode"; // "sample" | "real"
 
+// Real by default: the Command Center reports what the plan and progress
+// files actually contain. Sample is opt-in only, via the toggle, since as the
+// default it showed invented states that contradict verified stories (same
+// fix CoreOps made 2026-10-05). A saved Sample choice is still honored.
 function getMode() {
-  return localStorage.getItem(MODE_KEY) || "sample";
+  let saved = null;
+  try { saved = localStorage.getItem(MODE_KEY); } catch (e) { /* storage blocked: fall back to real */ }
+  return saved === "sample" ? "sample" : "real";
 }
 
 function setMode(mode) {
-  localStorage.setItem(MODE_KEY, mode);
+  try { localStorage.setItem(MODE_KEY, mode); } catch (e) { /* storage blocked: choice can't be saved, reload falls back to real */ }
   location.reload();
 }
 

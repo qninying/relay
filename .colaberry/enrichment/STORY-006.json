@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-006",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-10-22T15:30:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "systems",
+      "value": "Workers are real, separate OS processes forked by ProcessWorkerPool (workerProcess.ts), each running a standing consumer loop on the Redis Streams consumer group. The autoscaler sizes the pool from the group's lag.",
+      "evidence": "src/processWorkerPool.ts, src/workerProcess.ts, src/workerLoop.ts, src/autoscaler.ts"
+    },
+    {
+      "dimension": "constraints",
+      "value": "Autoscaling is single-host: the pool forks child processes on the machine running the autoscaler. Scaling across machines or containers is not built.",
+      "evidence": "src/processWorkerPool.ts"
+    },
+    {
+      "dimension": "integrations",
+      "value": "Queue depth comes from Redis 7+ XINFO GROUPS lag (undelivered entries), not XLEN. When Redis can't compute lag the read throws BacklogUnknownError rather than returning 0.",
+      "evidence": "src/queue.ts"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Scale up immediately; scale down only after the backlog has stayed below the current worker count's need for scaleDownAfter consecutive evaluations.",
+      "rationale": "a growing backlog is the expensive case, while killing workers during a brief lull between bursts just forces a respawn moments later (flapping).",
+      "evidence": "src/autoscaler.ts"
+    },
+    {
+      "statement": "The pool never respawns a dead worker itself; the autoscaler's next evaluation sees the lower count and scales back up.",
+      "rationale": "keeps exactly one place deciding how many workers exist, so the logged scaling decisions are the complete story of the pool's size.",
+      "evidence": "src/processWorkerPool.ts"
+    },
+    {
+      "statement": "Each evaluation mints its own correlation ID and passes it to every worker it spawns, which logs worker_started and worker_stopped with it.",
+      "rationale": "makes 'why does this worker exist' answerable from logs alone, tracing any worker back to the scaling decision that created it.",
+      "evidence": "src/autoscaler.ts, src/workerProcess.ts"
+    },
+    {
+      "statement": "An unreadable or hung backlog read holds the current worker count instead of assuming 0.",
+      "rationale": "assuming 0 would scale down a backlog the system simply can't see, the worst possible response to a Redis blip.",
+      "evidence": "src/autoscaler.ts, src/queue.ts"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Each worker process has its own in-memory idempotency store. Correct today because a consumer group delivers each entry to one consumer, but a redelivered entry landing on a different worker would not be caught as a duplicate.",
+      "evidence": "src/workerProcess.ts"
+    },
+    {
+      "statement": "dequeueOne() acks on delivery, so a worker killed mid-job loses that job rather than leaving it claimable. Ack-after-processing and redelivery belong to STORY-008's retry policy.",
+      "evidence": "src/queue.ts"
+    },
+    {
+      "statement": "Worker count and autoscale events are not yet shown on the SLO dashboard (STORY-005); they are visible in structured logs and Autoscaler.status() only.",
+      "evidence": "src/autoscaler.ts"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/autoscaler.test.ts" },
+    { "kind": "test", "ref": "src/autoscaler.integration.test.ts" },
+    { "kind": "test", "ref": "src/workerLoop.test.ts" }
+  ],
+  "measurementEvents": []
+}

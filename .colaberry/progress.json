@@ -302,20 +302,35 @@
       "criteria": [
         {
           "text": "Given job load increases, When workers are needed, Then they are autoscaled",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given job load decreases, When workers are not needed, Then they are scaled down",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Autoscaling events are logged with correlation IDs",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "src/autoscaler.ts",
+        "src/autoscaler.test.ts",
+        "src/autoscaler.integration.test.ts",
+        "src/processWorkerPool.ts",
+        "src/workerProcess.ts",
+        "src/workerLoop.ts",
+        "src/workerLoop.test.ts",
+        "src/queue.ts",
+        "src/runAutoscaler.ts",
+        "src/testFixtures/stubbornWorker.mjs"
+      ],
+      "tests_added": [
+        "src/autoscaler.test.ts",
+        "src/autoscaler.integration.test.ts",
+        "src/workerLoop.test.ts"
+      ],
+      "notes": "Autoscaler scales real worker OS processes (ProcessWorkerPool forks workerProcess.ts, each running the standing consumer loop STORY-002 deferred) on real queue depth - the Redis consumer group's lag via queue.getBacklog(), not XLEN. Scale-up is immediate (criterion 1); scale-down waits until the backlog has stayed low for scaleDownAfter evaluations so a brief lull doesn't kill workers (criterion 2). Every scaling evaluation gets a fresh correlation ID that is logged on autoscale_up/autoscale_down/autoscale_down_deferred and passed to each spawned worker, which logs worker_started/worker_stopped with it (trust). Failure paths: unreadable or hung backlog read holds the current count and logs (never guesses 0); pool throw logs autoscale_failed and retries next evaluation; partial spawn logs autoscale_shortfall; a worker ignoring SIGTERM is force-killed after a grace period; a worker that dies on its own is logged and replaced on the next evaluation; a throwing logger never blocks a scaling decision and is counted in status().logFailures. Verified: integration test against real Redis 7.4 and real forked processes - 40 jobs enqueued, scaled 1 -> 4 separate live PIDs, all 40 processed exactly once across more than one worker, scaled back to 1 with the stopped PIDs confirmed dead and each having exited gracefully. Mutation check: forcing desiredWorkerCount to always 1 failed 12 tests. 100/100 tests passing three runs in a row, tsc --noEmit clean. Demo (npx tsx runAutoscaler.ts --quiet): 120-job burst scaled 1 -> 6, drained, deferred twice, scaled 6 -> 1. Limitation: each worker's idempotency store is in-process; correct today because a consumer group delivers each entry to one consumer, but cross-process duplicate protection on redelivery needs a shared store (STORY-008). Autoscaler runs on one host; scaling across machines is STORY-010's deploy concern.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",
