@@ -24,7 +24,7 @@
     },
     {
       "path": "artifacts/INDEX.md",
-      "sha256": "cdae17c436110b78008a08c53888f770a12ac220b29f0ef508d133bb4d9e7f5e"
+      "sha256": "218b10807159bc021b1ac688329a06882144293cfaa4d51cca9a281e5025e91a"
     },
     {
       "path": "artifacts/week-01/workflow-diagram.pdf",
@@ -69,6 +69,10 @@
     {
       "path": "artifacts/week-11/7-layer-architecture-mapping.md",
       "sha256": "91922bf525b406cc89f0d93ad57cc59619e1681b49b37562c054ac1833a7f405"
+    },
+    {
+      "path": "artifacts/week-11/trust-boundaries-documentation.pdf",
+      "sha256": "b5ea1364c7cb8c19c540ff7cd568584a86583969a2e7bb746c2b8b86b32249a7"
     },
     {
       "path": "artifacts/week-12/coreops-program-inventory.csv",
