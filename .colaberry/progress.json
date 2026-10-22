@@ -3,13 +3,13 @@
   "project": "Relay: AI Agent Job Orchestration Platform",
   "totals": {
     "stories_total": 13,
-    "stories_verified": 8,
+    "stories_verified": 10,
     "stories_submitted": 0,
-    "stories_in_progress": 5,
+    "stories_in_progress": 3,
     "stories_not_started": 0,
     "criteria_total": 41,
-    "criteria_passed": 26,
-    "points_awarded": 2847
+    "criteria_passed": 32,
+    "points_awarded": 2971
   },
   "stories": [
     {
@@ -428,19 +428,15 @@
       "notes": "The DLQ runbook's Step 2 table is now code. failureClassifier.ts classifies a failure (live error by name, HTTP status or wrapped cause; DLQ reason by pattern) into timeout / client_error / upstream_error / review_queue_unavailable / unclassified. retryPolicy.ts holds one rule per class plus the codified triage rules: client_error in the DLQ switches the class to discard; timeout or upstream_error doubles that class's base backoff, capped at 10s; unclassified never changes the policy. INITIAL_POLICY reproduces pre-STORY-008 retry counts (verified by test). The policy lives in Redis (retryPolicyStore.ts) so all worker processes share it, with optimistic WATCH/MULTI updates, a bounded history of every change, and validation of the stored value. Criterion 1: triageNextDlqEntry (dlqTriage.ts) classifies a DLQ entry, updates the persisted policy, then resubmits (same idempotency key), discards, or escalates it; a job resubmitted more than twice is escalated. Criterion 2: withReliability takes the policy and follows the failed class's rule (attempts and backoff), with maxRetries still the hard ceiling; end-to-end test: a 400 job retried 3x into the DLQ, triage updated the policy, the next 400 job failed after 1 attempt. Trust: dlq_entry_classified, retry_policy_updated (with from/to rule and versions) and the outcome event all carry the entry's correlation ID; the policy's history also records it. Failure paths: not codified (unknown reason) escalates, never guesses; policy not updated (Redis down) returns the entry to the DLQ untouched and logs retry_policy_update_failed; concurrent triagers on separate connections both land (tested: 3 updates, version 4, no lost update); corrupt stored policy is never used on read or as an update base. Verified: 142/142 tests on 10 consecutive full-suite runs (33 new), tsc --noEmit clean. Mutation checks: disabling the client_error rule failed 7 tests, making withReliability ignore the policy failed 4. Demo (npx tsx src/runDlqTriage.ts): 400/503/unknown jobs dead-lettered under v1, triage discarded/resubmitted/escalated them and moved policy to v3, then a new 400 job failed after 1 attempt instead of 3. Runbook updated (automated triage section, what still needs a human). Limitations: no standing triage worker (triage is called by code); the STORY-006 worker loop doesn't make external calls, so policy-driven retries apply where callExternalApiAndPersist is given a retryPolicy; a DLQ reason that lost its HTTP status and has no recognisable text classifies as unclassified and goes to a human.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 186,
-        "outstanding": [
-          "Given a DLQ entry, When it is triaged, Then the retry policy is updated",
-          "Given the retry policy, When a job fails, Then it follows the updated policy",
-          "Trust: DLQ triage updates are logged with correlation IDs"
-        ]
+        "verified_at": "2026-10-22T15:49:59.037Z",
+        "commit_sha": "745728ce743ac2c2c1aa7be01564d19241a658e8",
+        "commit_url": "https://github.com/qninying/relay/commit/745728ce743ac2c2c1aa7be01564d19241a658e8",
+        "commit_at": "2026-10-22T15:49:42Z",
+        "points_awarded": 248,
+        "outstanding": []
       }
     },
     {
@@ -557,19 +553,15 @@
       "notes": "The taxonomy is a versioned file (taxonomies/industry.v1.json, 12 industry codes) and the loader (taxonomy.ts) refuses any file whose SHA-256 or version doesn't match the pin in code, so 'fixed' is enforced: an edited file fails loudly instead of silently changing the labels. classifyJob.ts shows the classifier only the taxonomy's labels and rejects any label not in it (exact match), and any confidence outside 0..1. Criterion 1: classifier called with exactly the taxonomy labels, result accepted only from it; tested with the real pinned file. Criterion 2: missing, changed (hash or version) or malformed taxonomy fails with reason taxonomy_unavailable before the classifier is called; a failed load isn't cached, so a restored file works on the next task. Trust: classification_completed / classification_failed logged with the job's correlation ID and taxonomy id, version and sha256; the result also carries them. Failure paths: taxonomy not found (above); classification task fails (classifier errors retried with cap then classifier_failed; hang cut off by timeout; empty input rejected without a call); logging service unavailable: logger.ts no longer throws when the output stream is broken, it counts the lost line (getDroppedLogCount), and classification still completes with its audit fields on the result. Also: the taxonomy now owns the review threshold (reviewThreshold in the file); a classified job carries it and STORY-007's routing uses it instead of the global 0.5 placeholder, which remains only as a fallback. Verified: 165/165 tests on 5 consecutive full-suite runs (22 new classification + 1 logger), guardrails package 16/16, tsc --noEmit clean. Mutation checks: removing the label check failed 2 tests, removing the hash check failed 1. Demo (npx tsx src/runClassification.ts): 2 classified, 1 low-confidence flagged for review, invented label crypto_web3 rejected, missing taxonomy fails gracefully. Limitation: no real LLM or vendor classifier is wired in; the classifier is injected (keyword stand-in in the demo).",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 186,
-        "outstanding": [
-          "Given a classification task, When it is executed, Then it uses the fixed taxonomy",
-          "Given a classification task, When the taxonomy is unavailable, Then the task fails gracefully",
-          "Trust: Given a classification task, Then its execution is logged with the taxonomy version"
-        ]
+        "verified_at": "2026-10-22T16:00:07.620Z",
+        "commit_sha": "e5460fd978cb6f9c69e3731d61d3ca117ef7f46f",
+        "commit_url": "https://github.com/qninying/relay/commit/e5460fd978cb6f9c69e3731d61d3ca117ef7f46f",
+        "commit_at": "2026-10-22T15:59:53Z",
+        "points_awarded": 248,
+        "outstanding": []
       }
     },
     {
