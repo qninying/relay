@@ -398,20 +398,34 @@
       "criteria": [
         {
           "text": "Given a DLQ entry, When it is triaged, Then the retry policy is updated",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given the retry policy, When a job fails, Then it follows the updated policy",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: DLQ triage updates are logged with correlation IDs",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "src/failureClassifier.ts",
+        "src/retryPolicy.ts",
+        "src/retryPolicy.test.ts",
+        "src/retryPolicyStore.ts",
+        "src/dlqTriage.ts",
+        "src/dlqTriage.test.ts",
+        "src/withReliability.ts",
+        "src/callExternalApi.ts",
+        "src/runDlqTriage.ts",
+        "docs/runbooks/DLQ_TRIAGE.md"
+      ],
+      "tests_added": [
+        "src/retryPolicy.test.ts",
+        "src/dlqTriage.test.ts"
+      ],
+      "notes": "The DLQ runbook's Step 2 table is now code. failureClassifier.ts classifies a failure (live error by name, HTTP status or wrapped cause; DLQ reason by pattern) into timeout / client_error / upstream_error / review_queue_unavailable / unclassified. retryPolicy.ts holds one rule per class plus the codified triage rules: client_error in the DLQ switches the class to discard; timeout or upstream_error doubles that class's base backoff, capped at 10s; unclassified never changes the policy. INITIAL_POLICY reproduces pre-STORY-008 retry counts (verified by test). The policy lives in Redis (retryPolicyStore.ts) so all worker processes share it, with optimistic WATCH/MULTI updates, a bounded history of every change, and validation of the stored value. Criterion 1: triageNextDlqEntry (dlqTriage.ts) classifies a DLQ entry, updates the persisted policy, then resubmits (same idempotency key), discards, or escalates it; a job resubmitted more than twice is escalated. Criterion 2: withReliability takes the policy and follows the failed class's rule (attempts and backoff), with maxRetries still the hard ceiling; end-to-end test: a 400 job retried 3x into the DLQ, triage updated the policy, the next 400 job failed after 1 attempt. Trust: dlq_entry_classified, retry_policy_updated (with from/to rule and versions) and the outcome event all carry the entry's correlation ID; the policy's history also records it. Failure paths: not codified (unknown reason) escalates, never guesses; policy not updated (Redis down) returns the entry to the DLQ untouched and logs retry_policy_update_failed; concurrent triagers on separate connections both land (tested: 3 updates, version 4, no lost update); corrupt stored policy is never used on read or as an update base. Verified: 142/142 tests on 10 consecutive full-suite runs (33 new), tsc --noEmit clean. Mutation checks: disabling the client_error rule failed 7 tests, making withReliability ignore the policy failed 4. Demo (npx tsx src/runDlqTriage.ts): 400/503/unknown jobs dead-lettered under v1, triage discarded/resubmitted/escalated them and moved policy to v3, then a new 400 job failed after 1 attempt instead of 3. Runbook updated (automated triage section, what still needs a human). Limitations: no standing triage worker (triage is called by code); the STORY-006 worker loop doesn't make external calls, so policy-driven retries apply where callExternalApiAndPersist is given a retryPolicy; a DLQ reason that lost its HTTP status and has no recognisable text classifies as unclassified and goes to a human.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",

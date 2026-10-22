@@ -5,6 +5,8 @@
 // this story (or a later one) needs it for.
 
 import { CircuitBreaker, CircuitOpenError } from "./circuitBreaker.js";
+import { classifyFailure, type FailureClass } from "./failureClassifier.js";
+import { attemptsFor, type RetryPolicy } from "./retryPolicy.js";
 
 export interface ReliabilityOptions {
   timeoutMs: number;
@@ -13,6 +15,12 @@ export interface ReliabilityOptions {
   maxDelayMs: number;
   circuitBreaker?: CircuitBreaker;
   onAttempt?: (attempt: number, maxAttempts: number) => void;
+  // STORY-008 (REQ-015): when given, each failure is classified and the
+  // policy's rule for that class decides whether to retry and with what base
+  // backoff. maxRetries stays the hard ceiling either way, so a policy can
+  // only make retries more conservative than this call allows, never
+  // unbounded.
+  retryPolicy?: RetryPolicy;
 }
 
 export class UpstreamTimeoutError extends Error {
@@ -27,7 +35,12 @@ export class UpstreamTimeoutError extends Error {
 export class UpstreamCallFailedError extends Error {
   readonly errorClass = "UpstreamCallFailedError" as const;
 
-  constructor(readonly attempts: number, cause: unknown) {
+  constructor(
+    readonly attempts: number,
+    cause: unknown,
+    // Set when a retry policy decided this call's retries (STORY-008).
+    readonly policy?: { failureClass: FailureClass; version: number }
+  ) {
     super(
       `Upstream call failed after ${attempts} attempt(s): ${
         cause instanceof Error ? cause.message : String(cause)
@@ -72,7 +85,7 @@ export async function withReliability<T>(
   operation: () => Promise<T>,
   options: ReliabilityOptions
 ): Promise<T> {
-  const { timeoutMs, maxRetries, baseDelayMs, maxDelayMs, circuitBreaker, onAttempt } = options;
+  const { timeoutMs, maxRetries, baseDelayMs, maxDelayMs, circuitBreaker, onAttempt, retryPolicy } = options;
   const maxAttempts = maxRetries + 1;
 
   let lastError: unknown;
@@ -93,6 +106,16 @@ export async function withReliability<T>(
     } catch (error) {
       lastError = error;
       circuitBreaker?.recordFailure();
+      if (retryPolicy) {
+        const failureClass = classifyFailure(error);
+        const rule = attemptsFor(retryPolicy, failureClass);
+        const allowed = Math.min(maxAttempts, rule.maxAttempts);
+        if (attempt >= allowed) {
+          throw new UpstreamCallFailedError(attempt, error, { failureClass, version: retryPolicy.version });
+        }
+        await delay(backoffDelay(attempt, rule.baseDelayMs, maxDelayMs));
+        continue;
+      }
       if (attempt < maxAttempts) {
         await delay(backoffDelay(attempt, baseDelayMs, maxDelayMs));
       }

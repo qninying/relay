@@ -27,8 +27,8 @@ the same criteria out of `.colaberry/progress.json`, which Claude Code keeps in
 step (see the managed block in CLAUDE.md). Ticking something you have not
 actually met only misleads you.
 
-- [ ] Given a DLQ entry, When it is triaged, Then the retry policy is updated
-- [ ] Given the retry policy, When a job fails, Then it follows the updated policy
-- [ ] Trust: DLQ triage updates are logged with correlation IDs
+- [x] Given a DLQ entry, When it is triaged, Then the retry policy is updated
+- [x] Given the retry policy, When a job fails, Then it follows the updated policy
+- [x] Trust: DLQ triage updates are logged with correlation IDs
 
 When every box above is ticked, stop and show the demo.

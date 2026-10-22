@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-008",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-10-22T16:20:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "systems",
+      "value": "The retry policy is a versioned JSON document in Redis (relay:retry-policy) with one rule per failure class and a bounded history of changes. Every worker process reads the same policy.",
+      "evidence": "src/retryPolicy.ts, src/retryPolicyStore.ts"
+    },
+    {
+      "dimension": "integrations",
+      "value": "Automated DLQ triage writes to three places: the work queue (resubmits), an escalation stream (needs a human), and the retry policy. Only the escalation stream needs manual review.",
+      "evidence": "src/dlqTriage.ts, docs/runbooks/DLQ_TRIAGE.md"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "The initial policy reproduces Relay's pre-STORY-008 behavior (every class retried 3 times); triage moves it toward the runbook's table as real DLQ entries are seen.",
+      "rationale": "the policy changes because of observed failures, not because of a guess made up front, and deploying this story alone changes no retry behavior.",
+      "evidence": "src/retryPolicy.ts, src/retryPolicy.test.ts"
+    },
+    {
+      "statement": "A rule's action (retry/discard/escalate) governs DLQ handling; for live retries only discard cuts attempts to 1. Escalate still retries live.",
+      "rationale": "found while running the demo: treating escalate as 'no live retries' would have silently stopped retrying every unknown error, a behavior change nobody asked for. An unknown error may be transient; it just needs a human once it reaches the DLQ.",
+      "evidence": "src/retryPolicy.ts"
+    },
+    {
+      "statement": "Codified rules only make retries more conservative or slower (discard, longer backoff, capped). They never raise attempts, and withReliability's maxRetries stays the hard ceiling.",
+      "rationale": "an automated policy that can grow retries without bound would turn one bad upstream into a retry storm.",
+      "evidence": "src/retryPolicy.ts, src/withReliability.ts"
+    },
+    {
+      "statement": "Policy updates use optimistic WATCH/MULTI with recompute-on-conflict, and calls on one store instance are queued because WATCH is per connection.",
+      "rationale": "several triagers or worker processes can update the policy at once; a plain read-modify-write would lose updates.",
+      "evidence": "src/retryPolicyStore.ts, src/dlqTriage.test.ts"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "No standing triage worker loops over the DLQ; triageNextDlqEntry is called by code (tests, demo, a script).",
+      "evidence": "src/dlqTriage.ts"
+    },
+    {
+      "statement": "DLQ entries store only the failure message, so a failure whose HTTP status isn't in the message text classifies as unclassified and is escalated.",
+      "evidence": "src/dlq.ts, src/failureClassifier.ts"
+    },
+    {
+      "statement": "The STORY-006 worker loop does not make external calls, so policy-driven retries apply where callExternalApiAndPersist is given a retryPolicy, not inside the autoscaled workers yet.",
+      "evidence": "src/workerLoop.ts, src/callExternalApi.ts"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/retryPolicy.test.ts" },
+    { "kind": "test", "ref": "src/dlqTriage.test.ts" }
+  ],
+  "measurementEvents": []
+}

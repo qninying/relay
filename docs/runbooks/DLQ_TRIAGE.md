@@ -6,10 +6,15 @@ steps to actually follow.
 
 ## What lands here, and why
 
-A job reaches the DLQ only one way right now: `callExternalApiAndPersist()`
-(`src/callExternalApi.ts`) exhausts every retry against an external API and
-`withReliability` throws `UpstreamCallFailedError`. See `src/dlq.ts` and
-`src/callExternalApi.ts` for the exact code path.
+A job reaches the DLQ two ways:
+
+1. `callExternalApiAndPersist()` (`src/callExternalApi.ts`) exhausts every
+   retry against an external API and `withReliability` throws
+   `UpstreamCallFailedError`. See `src/dlq.ts` and `src/callExternalApi.ts`.
+2. A low-confidence job couldn't be written to the review queue after 3
+   attempts (STORY-007). Its `failureReason` is exactly
+   `review_queue_unavailable`. It was never resolved; it only needs to be
+   resubmitted once Redis is healthy.
 
 **What does NOT land here:** a circuit-open rejection (`CircuitOpenError`).
 If the breaker is open, the call was never attempted at all — that's not
@@ -22,6 +27,39 @@ were never moved here.
 - `payload.originalPayload` — the original job's payload, untouched
 - `payload.failureReason` — the error message from the exhausted call
 - `payload.failedAt` — ISO timestamp of when it was moved here
+
+## Automated triage (STORY-008): most entries no longer need you
+
+`triageNextDlqEntry()` (`src/dlqTriage.ts`) applies the Step 2 table below
+as code. For each entry it:
+
+1. Classifies the `failureReason` (`src/failureClassifier.ts`): `timeout`,
+   `client_error`, `upstream_error`, `review_queue_unavailable`, or
+   `unclassified`.
+2. Updates the shared retry policy in Redis (`relay:retry-policy`,
+   `src/retryPolicy.ts`) by the codified rules: a 4xx switches that class to
+   *discard* (no more retries for bad input); a timeout or 5xx doubles that
+   class's base backoff, capped at 10s; unclassified changes nothing.
+   Every change is logged as `retry_policy_updated` with the entry's
+   correlation ID and kept in the policy's own `history` (last 50 changes).
+3. Acts on the entry under the updated policy: **resubmit** it to the work
+   queue (same idempotency key, so a duplicate is safe), **discard** it
+   (logged as `dlq_entry_discarded`), or **escalate** it to the escalation
+   stream (logged as `dlq_entry_escalated`).
+
+New external calls made with `retryPolicy` passed to `withReliability` then
+follow the updated policy straight away.
+
+**What you still handle by hand:** only the escalation stream. Entries land
+there when the failure is `unclassified`, or when the same job has already
+been resubmitted twice and failed again (`why: "resubmit_limit_reached"`).
+Use Steps 2 and 3 below for those. If you find yourself making the same call
+on the same kind of entry more than once, that's a rule to add to
+`failureClassifier.ts` / `deriveRuleUpdate`, not a habit to keep.
+
+**To check or reset the policy:** `redis-cli GET relay:retry-policy` shows
+the current rules, version and history. Deleting the key reverts every
+process to `INITIAL_POLICY` (retry everything 3 times) on its next read.
 
 ## Step 1 — check whether there's anything to triage
 
@@ -78,9 +116,12 @@ against a human manually re-triggering the same real-world action twice).
 
 ## What this runbook does not cover yet
 
-- **No automated retry-from-DLQ.** Resubmission in Step 2 is a manual
-  action right now. Codifying it — matching failure reasons to retry
-  policy automatically — is REQ-015 / STORY-008's job, not this one.
+- **Nothing runs triage on a schedule yet.** `triageNextDlqEntry()` is
+  called by code (tests, demo, a script); no standing triage worker loops
+  over the DLQ by itself.
+- **The worker loop doesn't make external calls yet**, so policy-driven
+  retries apply wherever `callExternalApiAndPersist` is called with a
+  `retryPolicy`, not inside STORY-006's workers.
 - **No DLQ size/age alerting.** Nothing currently pages anyone when the DLQ
   grows or an entry sits untriaged for a long time. That's observability
   work not yet built (see REQ-006/REQ-014, STORY-005/STORY-010).

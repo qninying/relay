@@ -44,6 +44,11 @@ export async function callExternalApiAndPersist(
       correlationId,
       outcome: "failure",
       errorClass,
+      // STORY-008: which retry-policy rule governed this call, if one did.
+      context:
+        error instanceof UpstreamCallFailedError && error.policy
+          ? { attempts: error.attempts, failureClass: error.policy.failureClass, policyVersion: error.policy.version }
+          : undefined,
     });
 
     if (error instanceof UpstreamCallFailedError && dlqOptions) {
