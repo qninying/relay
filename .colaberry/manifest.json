@@ -24,7 +24,7 @@
     },
     {
       "path": "artifacts/INDEX.md",
-      "sha256": "218b10807159bc021b1ac688329a06882144293cfaa4d51cca9a281e5025e91a"
+      "sha256": "ab81656330aaef6d7656552d0e5b8b16acaad3807ef2bbef011a33359c5bcb3f"
     },
     {
       "path": "artifacts/week-01/workflow-diagram.pdf",
@@ -69,6 +69,10 @@
     {
       "path": "artifacts/week-11/7-layer-architecture-mapping.md",
       "sha256": "91922bf525b406cc89f0d93ad57cc59619e1681b49b37562c054ac1833a7f405"
+    },
+    {
+      "path": "artifacts/week-11/data-flow-diagram.docx",
+      "sha256": "aa67f48b1b55117a7470f32e6baa6bae5b46bb1bae2fc1ac80ab71d158a85268"
     },
     {
       "path": "artifacts/week-11/trust-boundaries-documentation.pdf",
