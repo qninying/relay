@@ -51,6 +51,6 @@ describe("BatchResults.counts (STORY-105 trust: no item counted twice)", () => {
       "7": ["0", ["b-2", review, "b-3", done]],
     };
     const fake = { hscan: async (_k: string, cursor: string) => pages[cursor] } as unknown as Redis;
-    expect(await new BatchResults(fake).counts("b")).toEqual({ done: 2, review: 1, failed: 0, recorded: 3 });
+    expect(await new BatchResults(fake).counts("b")).toEqual({ done: 2, review: 1, failed: 0, rejected: 0, recorded: 3 });
   });
 });

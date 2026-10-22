@@ -28,9 +28,9 @@ describe("csvCell / resultLine", () => {
     const waiting = resultLine({ jobId: "b-2", row: 2, text: "Riverside Clinic" }, null);
     const failed = resultLine({ jobId: "b-3", row: 3, text: "x" }, { status: "failed", reason: "classifier unavailable", at: "2026-10-22T00:00:00Z" });
     expect(parseCsv(done + waiting + failed)).toEqual([
-      ["1", "a-1", "'=cmd|' /C calc'!A0", "done", "software", "0.91", "industry.v1", ""],
-      ["2", "", "Riverside Clinic", "waiting", "", "", "", ""],
-      ["3", "", "x", "failed", "", "", "", "classifier unavailable"],
+      ["1", "a-1", "'=cmd|' /C calc'!A0", "done", "software", "0.91", "industry.v1", "", "", "", "", ""],
+      ["2", "", "Riverside Clinic", "waiting", "", "", "", "", "", "", "", ""],
+      ["3", "", "x", "failed", "", "", "", "classifier unavailable", "", "", "", ""],
     ]);
   });
 

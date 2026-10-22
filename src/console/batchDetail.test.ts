@@ -158,12 +158,12 @@ describe.skipIf(!redisAvailable)("batch progress, items and results download (in
     expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     const text = bytes.toString("utf8");
     const [header, ...rows] = parseCsv(text);
-    expect(header).toEqual(["row", "id", "input", "status", "label", "confidence", "taxonomy_version", "reason"]);
+    expect(header).toEqual(["row", "id", "input", "status", "label", "confidence", "taxonomy_version", "reason", "reviewed_by", "review_decision", "review_note", "model_label"]);
     expect(rows).toHaveLength(120);
     expect(rows.map((r) => r[0])).toEqual(texts.map((_, i) => String(i + 1)));
-    expect(rows[0]).toEqual(["1", "r1", `'=HYPERLINK("http://evil.example","click")`, "waiting for review", "software", "0.4", "industry.v1", ""]);
+    expect(rows[0]).toEqual(["1", "r1", `'=HYPERLINK("http://evil.example","click")`, "waiting for review", "software", "0.4", "industry.v1", "", "", "", "", ""]);
     expect(rows[1][2]).toBe("'@SUM(A1:A9)");
-    expect(rows[2]).toEqual(["3", "r3", "Acme, Inc. builds software", "done", "software", "0.91", "industry.v1", ""]);
+    expect(rows[2]).toEqual(["3", "r3", "Acme, Inc. builds software", "done", "software", "0.91", "industry.v1", "", "", "", "", ""]);
     expect(rows[119][3]).toBe("waiting");
 
     // Trust: the counts are exactly the per-item statuses.

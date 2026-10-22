@@ -104,7 +104,7 @@ describe.skipIf(!redisAvailable)("batch items in the worker (integration, real R
     const entry = (await reviewEntries()).find((e) => e.id === "b2-0");
     expect(entry).toMatchObject({ correlationId: "corr-b2-0", payload: { reason: "low_confidence", threshold: 0.5, batchId: "b2", label: "other" } });
     expect(logs().some((l) => l.event === "job_processed" && l.correlationId === "corr-b2-0")).toBe(false);
-    expect(await d.results.counts("b2")).toEqual({ done: 0, review: 1, failed: 0, recorded: 1 });
+    expect(await d.results.counts("b2")).toEqual({ done: 0, review: 1, failed: 0, rejected: 0, recorded: 1 });
   });
 
   it("criterion 3: a classifier failure or an invented label marks the item failed with the reason, and stores no label", async () => {
@@ -140,7 +140,7 @@ describe.skipIf(!redisAvailable)("batch items in the worker (integration, real R
     expect(await handleBatchItem(item("b5", 0, text), { batchId: "b5", text }, deps({ classifier: confident }))).toEqual({ recorded: false, status: "done" });
     expect(await d.results.get("b5", "b5-0")).toMatchObject({ status: "review", label: "other" });
     expect((await reviewEntries()).length).toBe(before + 1);
-    expect(await d.results.counts("b5")).toEqual({ done: 0, review: 1, failed: 0, recorded: 1 });
+    expect(await d.results.counts("b5")).toEqual({ done: 0, review: 1, failed: 0, rejected: 0, recorded: 1 });
     expect(logs().some((l) => l.event === "job_skipped_duplicate" && l.context.reason === "result_already_recorded")).toBe(true);
   });
 
@@ -152,7 +152,7 @@ describe.skipIf(!redisAvailable)("batch items in the worker (integration, real R
     const results = await Promise.all(Array.from({ length: 6 }, () => handleBatchItem(item("b6", 0, text), { batchId: "b6", text }, d)));
     expect(results.filter((r) => r.recorded)).toHaveLength(1);
     expect((await reviewEntries()).length).toBe(before + 1);
-    expect(await d.results.counts("b6")).toEqual({ done: 0, review: 1, failed: 0, recorded: 1 });
+    expect(await d.results.counts("b6")).toEqual({ done: 0, review: 1, failed: 0, rejected: 0, recorded: 1 });
   });
 
   it("REQ-012: every outcome is checked against its declared schema before it is stored; off-contract ones are refused", async () => {
@@ -207,7 +207,7 @@ describe.skipIf(!redisAvailable)("batch items in the worker (integration, real R
     controller.abort();
     await loop;
 
-    expect(await d.results.counts("b7")).toEqual({ done: 5, review: 1, failed: 0, recorded: 6 });
+    expect(await d.results.counts("b7")).toEqual({ done: 5, review: 1, failed: 0, rejected: 0, recorded: 6 });
     const labels = await Promise.all(texts.map((_, n) => d.results.get("b7", `b7-${n}`)));
     expect(labels.map((o) => `${o!.status}:${o!.label}`)).toEqual([
       "done:software",

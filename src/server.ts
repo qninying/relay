@@ -32,6 +32,9 @@ import { batchConsole } from "./console/batchPages.js";
 import { BatchStore } from "./console/batches.js";
 import { BatchResults } from "./batchResults.js";
 import { batchRetentionDaysFromEnv } from "./batchRetention.js";
+import { reviewConsole } from "./console/reviewPages.js";
+import { ReviewItems } from "./console/reviewItems.js";
+import { cachedTaxonomy } from "./classifyJob.js";
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -99,11 +102,16 @@ async function main(): Promise<void> {
   // STORY-101: analyst console (login with password + authenticator code).
   const trustProxy = process.env.RELAY_TRUST_PROXY === "true";
   const audit = new AuditLog(redis);
+  const batchResults = new BatchResults(redis, undefined, retentionDays);
   const consoleHandler = createConsoleHandler({
     audit,
     actions: new ActionRunner(redis, audit, trustProxy),
     // STORY-104/105: batch upload, submit, progress and results download.
-    extensions: [batchConsole({ store: new BatchStore(redis, undefined, retentionDays), results: new BatchResults(redis, undefined, retentionDays), queue, audit })],
+    // STORY-106: review decisions.
+    extensions: [
+      batchConsole({ store: new BatchStore(redis, undefined, retentionDays), results: batchResults, queue, audit }),
+      reviewConsole({ items: new ReviewItems(redis, reviewStream), results: batchResults, audit, getTaxonomy: cachedTaxonomy() }),
+    ],
     operators: new OperatorStore(redis),
     sessions: new SessionStore(redis),
     limiter: new LoginLimiter(redis),

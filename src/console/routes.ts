@@ -232,8 +232,9 @@ function homePage(session: Session): string {
   <h1>Welcome, ${esc(session.username)}</h1>
   <p>You're signed in to the Relay console as ${session.role === "engineer" ? "an engineer" : "an analyst"}.</p>
   <p><a href="/console/batches">Batches</a>: upload a CSV and follow it.</p>
+  <p><a href="/console/review">Review</a>: decide the items the model wasn't sure about.</p>
   <p><a href="/console/audit">Audit log</a>: every sign-in and action, who did it and when.</p>
-  <p class="muted">Review and failed jobs arrive in the next release. Public status stays at <a href="/status">/status</a>.</p>
+  <p class="muted">Failed jobs arrive next. Public status stays at <a href="/status">/status</a>.</p>
 </div>`,
   });
 }

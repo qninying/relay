@@ -51,7 +51,7 @@ export const PROGRESS_SCRIPT = `
   if (!root || !window.fetch || root.getAttribute("data-finished") === "true") return;
   var src = root.getAttribute("data-src");
   var note = document.getElementById("progress-note");
-  var fields = ["done", "waiting", "review", "failed"];
+  var fields = ["done", "waiting", "review", "failed", "rejected"];
   var delay = 5000, timer = null, busy = false, stopped = false;
   function schedule() { timer = setTimeout(poll, delay); }
   function poll() {
@@ -153,6 +153,7 @@ export function batchDetail(deps: BatchDetailDeps): ConsoleExtension {
     <tr><th scope="row">Waiting</th><td id="count-waiting">${fmt(p.waiting)}</td></tr>
     <tr><th scope="row">Waiting for review</th><td id="count-review">${fmt(p.review)}</td></tr>
     <tr><th scope="row">Failed</th><td id="count-failed">${fmt(p.failed)}</td></tr>
+    <tr><th scope="row">Rejected in review</th><td id="count-rejected">${fmt(p.rejected)}</td></tr>
   </tbody></table>
   <p id="progress-note" class="muted" aria-live="polite">${p.finished ? "Finished. Every item has a result." : "Refreshes every few seconds."}</p>
   </div>

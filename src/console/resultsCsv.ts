@@ -11,7 +11,8 @@
 import type { ItemOutcome } from "../batchResults.js";
 import type { BatchInput } from "./batches.js";
 
-export const RESULTS_HEADER = ["row", "id", "input", "status", "label", "confidence", "taxonomy_version", "reason"];
+// The last four columns are filled for items a reviewer decided (STORY-106).
+export const RESULTS_HEADER = ["row", "id", "input", "status", "label", "confidence", "taxonomy_version", "reason", "reviewed_by", "review_decision", "review_note", "model_label"];
 
 const FORMULA_START = /^[=+\-@\t\r＝＋－＠]/;
 
@@ -36,5 +37,6 @@ export function statusLabel(outcome: ItemOutcome | null): string {
 }
 
 export function resultLine(input: BatchInput, outcome: ItemOutcome | null): string {
-  return csvLine([input.row, input.ref, input.text, statusLabel(outcome), outcome?.label, outcome?.confidence, outcome?.taxonomyVersion, outcome?.reason]);
+  const o = outcome;
+  return csvLine([input.row, input.ref, input.text, statusLabel(o), o?.label, o?.confidence, o?.taxonomyVersion, o?.reason, o?.reviewedBy, o?.reviewDecision, o?.note, o?.modelLabel]);
 }

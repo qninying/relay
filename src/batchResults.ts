@@ -20,6 +20,11 @@
 // applies to external API output) before it is persisted. An off-contract
 // outcome (missing or unexpected fields, or text that trips the injection
 // check) is refused with OutputContractViolation and nothing is written.
+//
+// STORY-106: a review decision changes a "review" item to "done" (approved
+// or corrected) or "rejected", and removes its review-queue entry, in one
+// atomic step (resolveReview), so a decision is applied exactly once and
+// an item is never left decided but still queued, or dequeued but undecided.
 
 import type { Redis } from "ioredis";
 import type { Job } from "./processJob.js";
@@ -27,7 +32,8 @@ import { checkOutputContractGuardrail, type JobOutputSchema } from "../guardrail
 import { logJson } from "./logger.js";
 import { DAY_MS, DEFAULT_BATCH_RETENTION_DAYS } from "./batchRetention.js";
 
-export type ItemStatus = "done" | "review" | "failed";
+export type ItemStatus = "done" | "review" | "failed" | "rejected";
+export type ReviewDecision = "approved" | "corrected" | "rejected";
 
 export interface ItemOutcome {
   status: ItemStatus;
@@ -36,19 +42,41 @@ export interface ItemOutcome {
   taxonomyVersion?: string;
   reason?: string;
   at: string;
+  // Set by a review decision (STORY-106).
+  reviewedBy?: string;
+  reviewDecision?: ReviewDecision;
+  note?: string;
+  // On a correction: what the model said, and its taxonomy version if the
+  // taxonomy has changed since.
+  modelLabel?: string;
+  modelTaxonomyVersion?: string;
 }
+
+// What resolveReview did: applied, or why nothing was decided.
+//   gone           the review entry is no longer queued (already decided)
+//   batch_deleted  the batch expired (retention); the stale entry is removed
+//   not_waiting    the item isn't waiting for review; the stale entry is removed
+export type ResolveOutcome = "applied" | "gone" | "batch_deleted" | "not_waiting";
 
 export interface BatchCounts {
   done: number;
   review: number;
   failed: number;
+  rejected: number;
   recorded: number;
 }
 
+const REVIEW_FIELDS = ["reviewedBy", "reviewDecision", "note", "modelLabel", "modelTaxonomyVersion"];
+
 export const OUTCOME_SCHEMAS: Record<ItemStatus, JobOutputSchema> = {
-  done: { jobType: "batch_item_done", requiredFields: ["status", "label", "confidence", "taxonomyVersion", "at"], allowedFields: new Set(["status", "label", "confidence", "taxonomyVersion", "at"]) },
+  done: { jobType: "batch_item_done", requiredFields: ["status", "label", "confidence", "taxonomyVersion", "at"], allowedFields: new Set(["status", "label", "confidence", "taxonomyVersion", "at", ...REVIEW_FIELDS]) },
   review: { jobType: "batch_item_review", requiredFields: ["status", "label", "confidence", "taxonomyVersion", "at"], allowedFields: new Set(["status", "label", "confidence", "taxonomyVersion", "at"]) },
   failed: { jobType: "batch_item_failed", requiredFields: ["status", "reason", "at"], allowedFields: new Set(["status", "reason", "taxonomyVersion", "at"]) },
+  rejected: {
+    jobType: "batch_item_rejected",
+    requiredFields: ["status", "label", "confidence", "taxonomyVersion", "at", "reviewedBy", "reviewDecision", "note"],
+    allowedFields: new Set(["status", "label", "confidence", "taxonomyVersion", "at", "reviewedBy", "reviewDecision", "note"]),
+  },
 };
 
 export class OutputContractViolation extends Error {
@@ -65,7 +93,12 @@ export function checkOutcome(outcome: ItemOutcome): string[] {
   const violations: string[] = [...checkOutputContractGuardrail(record, schema).violations];
   if ("confidence" in record && (typeof record.confidence !== "number" || record.confidence < 0 || record.confidence > 1)) violations.push("BAD_CONFIDENCE");
   if (typeof record.at !== "string" || Number.isNaN(Date.parse(record.at))) violations.push("BAD_TIMESTAMP");
-  for (const key of ["label", "reason", "taxonomyVersion"]) if (key in record && typeof record[key] !== "string") violations.push(`BAD_${key.toUpperCase()}`);
+  for (const key of ["label", "reason", "taxonomyVersion", "reviewedBy", "note", "modelLabel", "modelTaxonomyVersion"]) if (key in record && typeof record[key] !== "string") violations.push(`BAD_${key.toUpperCase()}`);
+  if ("reviewDecision" in record) {
+    const expected = outcome.status === "rejected" ? ["rejected"] : ["approved", "corrected"];
+    if (!expected.includes(String(record.reviewDecision))) violations.push("BAD_REVIEW_DECISION");
+  }
+  if (outcome.status === "done" && ("reviewDecision" in record) !== ("reviewedBy" in record)) violations.push("INCOMPLETE_REVIEW");
   return violations;
 }
 
@@ -76,6 +109,18 @@ if ttl > 0 then redis.call('PEXPIRE', KEYS[1], ttl)
 elseif ttl == -2 then redis.call('PEXPIRE', KEYS[1], ARGV[4]) end
 if ARGV[3] ~= '' then redis.call('XADD', KEYS[2], '*', 'data', ARGV[3]) end
 return 1
+`;
+
+// Checks first, writes last: Redis doesn't roll back a script that errors,
+// so nothing is written unless every check passed.
+const RESOLVE_REVIEW = `
+if #redis.call('XRANGE', KEYS[1], ARGV[1], ARGV[1]) == 0 then return 'gone' end
+local current = redis.call('HGET', KEYS[2], ARGV[2])
+if not current then redis.call('XDEL', KEYS[1], ARGV[1]) return 'batch_deleted' end
+if cjson.decode(current).status ~= 'review' then redis.call('XDEL', KEYS[1], ARGV[1]) return 'not_waiting' end
+redis.call('HSET', KEYS[2], ARGV[2], ARGV[3])
+redis.call('XDEL', KEYS[1], ARGV[1])
+return 'applied'
 `;
 
 export class BatchResults {
@@ -118,6 +163,16 @@ export class BatchResults {
     return result === 1;
   }
 
+  // STORY-106: applies a review decision to a "review" item and removes its
+  // review entry (reviewStream, messageId), atomically. The outcome passes
+  // the same contract check as any other before anything is touched.
+  async resolveReview(batchId: string, jobId: string, reviewStream: string, messageId: string, outcome: ItemOutcome): Promise<ResolveOutcome> {
+    if (outcome.status !== "done" && outcome.status !== "rejected") throw new OutputContractViolation(["NOT_A_DECISION"]);
+    const violations = checkOutcome(outcome);
+    if (violations.length) throw new OutputContractViolation(violations);
+    return (await this.redis.eval(RESOLVE_REVIEW, 2, reviewStream, this.itemsKey(batchId), messageId, jobId, JSON.stringify(outcome))) as ResolveOutcome;
+  }
+
   async get(batchId: string, jobId: string): Promise<ItemOutcome | null> {
     const raw = await this.redis.hget(this.itemsKey(batchId), jobId);
     return raw ? (JSON.parse(raw) as ItemOutcome) : null;
@@ -132,7 +187,7 @@ export class BatchResults {
   }
 
   async counts(batchId: string): Promise<BatchCounts> {
-    const counts: BatchCounts = { done: 0, review: 0, failed: 0, recorded: 0 };
+    const counts: BatchCounts = { done: 0, review: 0, failed: 0, rejected: 0, recorded: 0 };
     // HSCAN may return a field more than once (while Redis rehashes a large
     // hash), so each item is counted by its id, once (STORY-105 trust).
     const seen = new Set<string>();
