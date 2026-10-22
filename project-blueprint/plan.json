@@ -1,0 +1,446 @@
+{
+  "project_name": "Relay Analyst Console",
+  "descriptor": "A secure, logged-in web console on top of the deployed Relay system, so RevOps and research-ops analysts and the engineers who run Relay can submit batches and follow them, decide on items that need a human, resubmit or discard failed jobs, and see Relay's health on one screen, with every action protected by password + authenticator login, recorded in an audit log, and impossible to apply twice.",
+  "requirements": [
+    {
+      "id": "REQ-101",
+      "kind": "SAFE",
+      "cluster": "Access Control",
+      "priority": "must",
+      "statement": "Every console page and action must require an authenticated session, and logging in must require both the operator's password and a current authenticator (TOTP) code.",
+      "fulfilled_by": [
+        "STORY-101"
+      ]
+    },
+    {
+      "id": "REQ-102",
+      "kind": "SAFE",
+      "cluster": "Access Control",
+      "priority": "must",
+      "statement": "Failed logins must be rate-limited per IP and per account, sessions must expire after 8 hours of inactivity, and session cookies must be HttpOnly, Secure and SameSite=Strict.",
+      "fulfilled_by": [
+        "STORY-101"
+      ]
+    },
+    {
+      "id": "REQ-103",
+      "kind": "SAFE",
+      "cluster": "Audit",
+      "priority": "must",
+      "statement": "Every console action (login, logout, batch submit, review decision, resubmit, discard) must be appended to a durable audit log with operator, time, action, target and correlation ID before the action is reported as done.",
+      "fulfilled_by": [
+        "STORY-102"
+      ]
+    },
+    {
+      "id": "REQ-104",
+      "kind": "SAFE",
+      "cluster": "Request Integrity",
+      "priority": "must",
+      "statement": "Every state-changing console request must carry a valid per-session CSRF token from the same origin, and be rejected with 403 otherwise.",
+      "fulfilled_by": [
+        "STORY-102"
+      ]
+    },
+    {
+      "id": "REQ-105",
+      "kind": "SAFE",
+      "cluster": "Request Integrity",
+      "priority": "must",
+      "statement": "Every console action must be idempotent: a double-click, a retried request or the same action from two tabs must never apply it twice.",
+      "fulfilled_by": [
+        "STORY-102",
+        "STORY-104"
+      ]
+    },
+    {
+      "id": "REQ-106",
+      "kind": "FUNC",
+      "cluster": "Batch Intake",
+      "priority": "must",
+      "statement": "An analyst must be able to upload a CSV (at most 5,000 rows and 2 MB, one required text column), see row-level validation errors before anything is enqueued, and submit the valid rows as one batch.",
+      "fulfilled_by": [
+        "STORY-104"
+      ]
+    },
+    {
+      "id": "REQ-107",
+      "kind": "FUNC",
+      "cluster": "Batch Intake",
+      "priority": "must",
+      "statement": "For each batch the console must show how many items are done, waiting, waiting for review and failed, refresh without a page reload, and offer the results as a CSV download.",
+      "fulfilled_by": [
+        "STORY-105"
+      ]
+    },
+    {
+      "id": "REQ-108",
+      "kind": "FUNC",
+      "cluster": "Human Review",
+      "priority": "must",
+      "statement": "The console must list items waiting for review with the reason, the input text and the model's answer and confidence, and let a reviewer approve it, correct it to another label from the fixed taxonomy, or reject it.",
+      "fulfilled_by": [
+        "STORY-106"
+      ]
+    },
+    {
+      "id": "REQ-109",
+      "kind": "FUNC",
+      "cluster": "Human Review",
+      "priority": "must",
+      "statement": "A review decision must resolve the item exactly once: it leaves the review queue, its batch result is updated, and the decision is in the audit log.",
+      "fulfilled_by": [
+        "STORY-106"
+      ]
+    },
+    {
+      "id": "REQ-110",
+      "kind": "FUNC",
+      "cluster": "Failure Handling",
+      "priority": "must",
+      "statement": "The console must list escalated failed jobs with their failure reason and class, and let an engineer resubmit one with its original idempotency key or discard it with a required note.",
+      "fulfilled_by": [
+        "STORY-107"
+      ]
+    },
+    {
+      "id": "REQ-111",
+      "kind": "FUNC",
+      "cluster": "Monitoring",
+      "priority": "must",
+      "statement": "One overview screen must combine the plain-language status with success rate, p95 latency, queue depth and failed-job trends over the last 24 hours.",
+      "fulfilled_by": [
+        "STORY-108"
+      ]
+    },
+    {
+      "id": "REQ-112",
+      "kind": "NFR",
+      "cluster": "Experience",
+      "priority": "should",
+      "statement": "All console screens must meet WCAG 2.1 AA, work at 360px phone width without horizontal scrolling, and support light and dark mode.",
+      "fulfilled_by": [
+        "STORY-108"
+      ]
+    },
+    {
+      "id": "REQ-113",
+      "kind": "NFR",
+      "cluster": "Performance",
+      "priority": "should",
+      "statement": "List screens must render in under 1 second with up to 1,000 items, using pagination.",
+      "fulfilled_by": [
+        "STORY-105"
+      ]
+    },
+    {
+      "id": "REQ-114",
+      "kind": "CONSTRAINT",
+      "cluster": "Platform",
+      "priority": "must",
+      "statement": "The console must run inside the existing relay-qn Fly.io app with no new paid service, and the public read-only /status page must stay available without login.",
+      "fulfilled_by": [
+        "STORY-109"
+      ]
+    },
+    {
+      "id": "REQ-115",
+      "kind": "FUNC",
+      "cluster": "Batch Results",
+      "priority": "must",
+      "statement": "Workers must classify each submitted item against the fixed taxonomy and record its outcome per batch, through a classifier adapter so a real model can replace the stand-in without changes elsewhere.",
+      "fulfilled_by": [
+        "STORY-103"
+      ]
+    }
+  ],
+  "releases": [
+    {
+      "key": "r0",
+      "name": "Safe Front Door",
+      "goal": "Prove nobody can act on Relay without password + authenticator login, and that every action is recorded and can't be applied twice.",
+      "demo": "Log in with a password and a phone authenticator code, see a protected page, get locked out after repeated bad codes, and show the audit log recording every attempt.",
+      "week_start": 0,
+      "week_end": 1,
+      "story_ids": [
+        "STORY-101",
+        "STORY-102"
+      ]
+    },
+    {
+      "key": "r1",
+      "name": "Batches In, Results Out",
+      "goal": "An analyst can upload a CSV, watch the batch finish, and download real per-item results.",
+      "demo": "Upload a 200-row CSV with two bad rows, see the row errors, submit the rest, watch the progress bars fill, and download the classified results.",
+      "week_start": 1,
+      "week_end": 2,
+      "story_ids": [
+        "STORY-103",
+        "STORY-104",
+        "STORY-105"
+      ]
+    },
+    {
+      "key": "r2",
+      "name": "Humans in the Loop",
+      "goal": "Items that need a person can be decided in the console, exactly once.",
+      "demo": "Approve one low-confidence item, correct another to a different taxonomy label, reject a third, then resubmit a failed job and discard another with a note, all visible in the audit log.",
+      "week_start": 2,
+      "week_end": 3,
+      "story_ids": [
+        "STORY-106",
+        "STORY-107"
+      ]
+    },
+    {
+      "key": "r3",
+      "name": "One Screen, Production Ready",
+      "goal": "Relay's health on one accessible screen, and the whole console live in production.",
+      "demo": "Open the overview on a phone in dark mode, read the 24-hour trends, then log in to the live console at relay-qn.fly.dev and submit a batch end to end.",
+      "week_start": 3,
+      "week_end": 4,
+      "story_ids": [
+        "STORY-108",
+        "STORY-109"
+      ]
+    }
+  ],
+  "stories": [
+    {
+      "id": "STORY-101",
+      "title": "Log in to the console with a password and an authenticator code",
+      "release": "r0",
+      "fulfills": [
+        "REQ-101",
+        "REQ-102"
+      ],
+      "narrative": "As an analyst, I want to log in with my password and an authenticator code, so that nobody else can act on Relay in my name.",
+      "acceptance": [
+        "Given a valid password and current TOTP code, When I log in, Then I get a session and reach the protected console home page",
+        "Given a wrong password or code, When I log in, Then I am refused with one generic message that doesn't say which part was wrong",
+        "Given 5 failed attempts for an account or IP within 15 minutes, When I try again, Then I am refused until the window passes, even with correct credentials",
+        "Trust: no console page or action responds without a valid session (401 for API calls, redirect to login for pages), checked against every /console route"
+      ],
+      "blocked_by": [],
+      "owner_agent": "Analyst",
+      "failure_paths": [
+        "A TOTP code from the previous or next 30-second step is rejected because of phone clock drift (allow exactly +/-1 step, never more)",
+        "Session store (Redis) unreachable at login: must refuse to log in, never fall back to an unchecked session",
+        "Timing difference between unknown user and wrong password leaks which accounts exist"
+      ],
+      "task_guidance": "Port CoreOps's hand-rolled auth (ai-operations-center/mcp-server/src/auth/totp.ts and its scrypt credentials helper) into relay/src/console/auth/, node:crypto only. Operator accounts (username, role analyst|engineer, scrypt hash, TOTP secret) live in Redis, created by an admin script run over `fly ssh console`; sessions in Redis with an 8-hour idle TTL; cookies HttpOnly, Secure, SameSite=Strict. Add /console routes to the existing status server; leave /status, /status.json and /health public."
+    },
+    {
+      "id": "STORY-102",
+      "title": "Record every console action and make it impossible to forge or repeat",
+      "release": "r0",
+      "fulfills": [
+        "REQ-103",
+        "REQ-104",
+        "REQ-105"
+      ],
+      "narrative": "As an engineer, I want every console action recorded and protected against forgery and double-submission, so that I can always say who did what and nothing happens twice.",
+      "acceptance": [
+        "Given a logged-in operator, When they perform any action, Then an audit entry with operator, time, action, target, outcome and correlation ID is written before the response says it succeeded",
+        "Given a state-changing request without a valid CSRF token or from another origin, When it arrives, Then it is rejected with 403 and the rejection is audited",
+        "Given the same action submitted twice with the same idempotency key, When the second arrives, Then it returns the first result and changes nothing",
+        "Trust: if the audit log can't be written, the action is not performed and the operator is told it failed"
+      ],
+      "blocked_by": [
+        "STORY-101"
+      ],
+      "owner_agent": "Engineer",
+      "failure_paths": [
+        "Audit write fails after the action already happened (must be impossible: audit first or both in one transaction)",
+        "Two tabs submit the same action at the same moment (race on the idempotency check)",
+        "Audit log grows without bound in Redis"
+      ],
+      "task_guidance": "One `performAction(operator, action, idempotencyKey, fn)` wrapper in relay/src/console/actions.ts that every later story uses: checks CSRF + origin, claims the idempotency key with SET NX (same pattern as RedisIdempotencyStore), writes the audit entry to a capped Redis stream (e.g. 90 days), then runs fn. A read-only /console/audit page lists recent entries."
+    },
+    {
+      "id": "STORY-103",
+      "title": "Classify each batch item in the workers and record its result",
+      "release": "r1",
+      "fulfills": [
+        "REQ-115"
+      ],
+      "narrative": "As an analyst, I want every item I submit to come back with a real classification and status, so that a batch's results mean something.",
+      "acceptance": [
+        "Given a job with a batch id and input text, When a worker handles it, Then it runs classifyJob against the fixed taxonomy and stores the label, confidence and taxonomy version under that batch",
+        "Given a classification below the taxonomy's review threshold, When it is stored, Then the item is marked waiting for review and is in the review queue, not marked done",
+        "Given the classifier fails or returns a label outside the taxonomy, When the worker handles it, Then the item is marked failed with the reason, and nothing is stored as a result",
+        "Trust: each item's stored result is written once (idempotent per job), and a redelivered job never overwrites or double-counts it"
+      ],
+      "blocked_by": [
+        "STORY-102"
+      ],
+      "owner_agent": "System",
+      "failure_paths": [
+        "Classifier adapter not configured or its API key missing at startup",
+        "Classifier call hangs or rate-limits (timeout, capped retries, then failed, never a stuck worker)",
+        "Batch counters drift from the per-item statuses after a worker crash mid-update"
+      ],
+      "task_guidance": "Add a classifier adapter interface (stand-in keyword classifier and, if approved, a Claude API adapter selected by env var) and call src/classifyJob.ts from the worker path in src/jobRouter.ts / src/workerLoop.ts. Store per-item results in a Redis hash per batch and derive counts from item statuses rather than separate counters. Depends on the open decision about which classifier to use."
+    },
+    {
+      "id": "STORY-104",
+      "title": "Submit a batch by uploading a CSV",
+      "release": "r1",
+      "fulfills": [
+        "REQ-106",
+        "REQ-105"
+      ],
+      "narrative": "As an analyst, I want to upload a CSV of companies and submit it as one batch, so that I don't need an engineer to start a run.",
+      "acceptance": [
+        "Given a valid CSV with a text column, When I upload it, Then I see a preview with the row count and can submit it as one batch",
+        "Given rows that are empty, too long, or a file over 5,000 rows or 2 MB, When I upload it, Then I see which rows are wrong and why, and nothing is enqueued until I confirm the valid rows",
+        "Given I press submit twice or refresh, When the batch is submitted, Then it is enqueued exactly once",
+        "Trust: the submission is audited with the batch id, row count and operator, and every enqueued job carries the batch id and its own correlation ID"
+      ],
+      "blocked_by": [
+        "STORY-102",
+        "STORY-103"
+      ],
+      "owner_agent": "Analyst",
+      "failure_paths": [
+        "CSV with formula-injection cells (=, +, -, @) that later open in Excel",
+        "Upload with a non-UTF-8 encoding or a BOM",
+        "Redis fills up mid-enqueue (noeviction): partial batch must be reported, not hidden"
+      ],
+      "task_guidance": "Parse CSV in relay/src/console/csv.ts without a new dependency (quoted fields, BOM, CRLF), validate, store the batch record, then enqueue through the existing RedisStreamQueue inside performAction. Neutralise formula-leading cells on output (STORY-105), never execute them."
+    },
+    {
+      "id": "STORY-105",
+      "title": "Follow a batch's progress and download its results",
+      "release": "r1",
+      "fulfills": [
+        "REQ-107",
+        "REQ-113"
+      ],
+      "narrative": "As an analyst, I want to see how my batch is doing and download the results, so that I can hand them on without asking anyone.",
+      "acceptance": [
+        "Given a submitted batch, When I open it, Then I see done, waiting, waiting for review and failed counts that refresh without reloading the page",
+        "Given a finished batch, When I download results, Then I get a CSV with one row per item: input, label, confidence, status and taxonomy version",
+        "Given a list of more than 1,000 batches or items, When I open it, Then it renders in under a second with pagination",
+        "Trust: the counts always equal the per-item statuses (no item counted twice or missing), and downloads are audited"
+      ],
+      "blocked_by": [
+        "STORY-103",
+        "STORY-104"
+      ],
+      "owner_agent": "Analyst",
+      "failure_paths": [
+        "Results CSV opened in Excel executes a formula from an input cell",
+        "Batch page polled by many tabs overloads Redis (polling interval and cache)",
+        "A batch id from another operator's URL (any logged-in operator may view, but the access is audited)"
+      ],
+      "task_guidance": "Batch list and detail pages under /console/batches, progress via a small JSON endpoint polled every few seconds. CSV export streams rows and prefixes formula-leading cells with an apostrophe."
+    },
+    {
+      "id": "STORY-106",
+      "title": "Decide on items waiting for review",
+      "release": "r2",
+      "fulfills": [
+        "REQ-108",
+        "REQ-109"
+      ],
+      "narrative": "As a reviewer, I want to approve, correct or reject items the model wasn't sure about, so that low-confidence answers never reach results unchecked.",
+      "acceptance": [
+        "Given an item waiting for review, When I open it, Then I see the reason, the input text, the model's label and confidence, and the taxonomy's labels to choose from",
+        "Given I approve or correct it, When I submit, Then the item's batch result is updated with my label, it leaves the queue, and it counts as done",
+        "Given I reject it, When I submit, Then it is recorded as rejected with my note and leaves the queue",
+        "Trust: a decision is applied exactly once even if two reviewers act on the same item at the same moment, and only labels from the fixed taxonomy are accepted"
+      ],
+      "blocked_by": [
+        "STORY-103"
+      ],
+      "owner_agent": "Analyst",
+      "failure_paths": [
+        "Two reviewers decide the same item simultaneously",
+        "Taxonomy changed since the item was classified (show and record the version used)",
+        "Review stream entry consumed but the result update fails (no item lost or left half-decided)"
+      ],
+      "task_guidance": "Read the review stream with peek for the list; apply decisions through performAction with the item's idempotency key, updating the batch result and acking/removing the review entry in one step. Validate corrections against the loaded taxonomy codes."
+    },
+    {
+      "id": "STORY-107",
+      "title": "Resubmit or discard failed jobs",
+      "release": "r2",
+      "fulfills": [
+        "REQ-110"
+      ],
+      "narrative": "As an engineer, I want to see the failed jobs that need a person and resubmit or discard them, so that nothing sits in the escalation stream forgotten.",
+      "acceptance": [
+        "Given escalated failed jobs, When I open the failed jobs page, Then I see each one's failure reason, class and how long it has waited",
+        "Given I resubmit one, When I confirm, Then it is enqueued again with its original idempotency key and leaves the list",
+        "Given I discard one, When I confirm with a required note, Then it is recorded as discarded and leaves the list",
+        "Trust: only engineers can resubmit or discard (analysts see the page read-only), and every action is audited"
+      ],
+      "blocked_by": [
+        "STORY-102"
+      ],
+      "owner_agent": "Engineer",
+      "failure_paths": [
+        "Resubmitting a job whose original actually succeeded (idempotency key must stop a duplicate)",
+        "Discard without a note, or with a note containing HTML",
+        "Escalation stream unreachable while the page is open"
+      ],
+      "task_guidance": "Build on src/dlqTriage.ts's escalation stream; reuse RedisStreamQueue.enqueue for resubmission so idempotency keys carry over. Role check in performAction."
+    },
+    {
+      "id": "STORY-108",
+      "title": "See Relay's health on one overview screen",
+      "release": "r3",
+      "fulfills": [
+        "REQ-111",
+        "REQ-112"
+      ],
+      "narrative": "As an analyst, I want one screen that tells me in plain words whether Relay is healthy and how it has trended today, so that I don't need two dashboards and an engineer to read them.",
+      "acceptance": [
+        "Given monitoring data, When I open the overview, Then I see the plain-language status plus 24-hour charts of success rate, p95 latency, queue depth and failed jobs",
+        "Given monitoring is unavailable or stale, When I open the overview, Then it says so instead of showing old numbers as current",
+        "Given a 360px-wide phone in dark mode, When I open any console screen, Then it is readable, has no horizontal scroll, and passes WCAG 2.1 AA contrast and keyboard checks",
+        "Trust: the public /status page stays available without login and shows no job content"
+      ],
+      "blocked_by": [
+        "STORY-101"
+      ],
+      "owner_agent": "Analyst",
+      "failure_paths": [
+        "Charts with gaps after a restart or deploy (show the gap, never interpolate invented data)",
+        "Colour-only status indicators unreadable for colour-blind users",
+        "History endpoint slow with a week of samples"
+      ],
+      "task_guidance": "Combine statusView.ts and the SLO dashboard into /console (home), charts as inline SVG from /metrics/history (no chart library), design tokens for light/dark. Run an accessibility pass (axe or the fixing-accessibility skill) over every console page."
+    },
+    {
+      "id": "STORY-109",
+      "title": "Ship the console to production and verify it end to end",
+      "release": "r3",
+      "fulfills": [
+        "REQ-114"
+      ],
+      "narrative": "As an engineer, I want the console live on relay-qn with real operator accounts, so that analysts can use it without me.",
+      "acceptance": [
+        "Given a deploy, When deploy.sh runs, Then tests gate it, the smoke check covers the console login page and the public status, and a failure rolls back",
+        "Given a real operator account created over fly ssh, When they log in from a phone authenticator, Then they can submit a batch, follow it and download results on the live site",
+        "Given the console is live, When an unauthenticated request hits any /console route, Then it is refused",
+        "Trust: no new paid service, no secrets in the repo, and operator TOTP secrets never appear in logs or command history"
+      ],
+      "blocked_by": [
+        "STORY-104",
+        "STORY-105",
+        "STORY-106",
+        "STORY-107",
+        "STORY-108"
+      ],
+      "owner_agent": "Engineer",
+      "failure_paths": [
+        "Cookie Secure flag breaks login over Fly's HTTPS termination (check the forwarded protocol)",
+        "Admin script prints a TOTP secret into shell history",
+        "Deploy during an in-progress batch loses no items (workers finish or reclaim)"
+      ],
+      "task_guidance": "Extend scripts/deploy.sh's smoke check and docs/runbooks/DEPLOYMENT.md; add an operator-admin runbook (create, disable, reset MFA). Verify on the live URL with a real phone."
+    }
+  ]
+}
