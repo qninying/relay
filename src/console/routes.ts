@@ -24,7 +24,6 @@
 //   nothing falls back to an unchecked session.
 
 import type http from "node:http";
-import { once } from "node:events";
 import { randomUUID } from "node:crypto";
 import { logJson } from "../logger.js";
 import { matchTotp } from "./auth/totp.js";
@@ -37,9 +36,10 @@ import type { Role } from "./auth/operators.js";
 import type { AuditLog } from "./audit.js";
 import { checkIntegrity, type ActionResult, type ActionRunner } from "./actions.js";
 import { esc, page } from "./layout.js";
+import { auditPage, homePage, loginPage } from "./corePages.js";
+import { clientIp, HEADERS, html, json, readCookie, readForm, redirect, sessionCookie, SESSION_COOKIE, stream, type Download } from "./http.js";
 
-export const SESSION_COOKIE = "relay_session";
-const MAX_BODY_BYTES = 8 * 1024;
+export { SESSION_COOKIE, type Download };
 // Internal log reasons only; the user always sees GENERIC_FAILURE.
 const FAIL = { unknownUser: "unknown_user", disabled: "disabled", wrongPw: "bad_password", badCode: "bad_or_reused_code" } as const;
 const GENERIC_FAILURE = "That username, password or code isn't right. Check them and try again.";
@@ -79,13 +79,6 @@ export interface ApiRoute {
   handle: (session: Session, match: RegExpMatchArray) => Promise<{ status: number; body: unknown }>;
 }
 
-// A file streamed to the browser (e.g. a results CSV). handle may answer
-// with a page instead (not found, unavailable).
-export interface Download {
-  filename: string;
-  type: string;
-  chunks: AsyncIterable<string>;
-}
 export interface DownloadRoute {
   match: RegExp;
   handle: (session: Session, match: RegExpMatchArray) => Promise<Download | PageResult>;
@@ -120,144 +113,6 @@ export interface ConsoleDeps {
 
 export type ConsoleHandler = (req: http.IncomingMessage, res: http.ServerResponse, url: URL) => Promise<void>;
 
-const HEADERS = {
-  "Cache-Control": "no-store",
-  "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "no-referrer",
-  "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
-};
-
-function html(res: http.ServerResponse, status: number, body: string, extra: Record<string, string> = {}): void {
-  res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", ...HEADERS, ...extra });
-  res.end(body);
-}
-
-function redirect(res: http.ServerResponse, location: string, extra: Record<string, string> = {}): void {
-  res.writeHead(303, { Location: location, ...HEADERS, ...extra });
-  res.end();
-}
-
-function json(res: http.ServerResponse, status: number, body: unknown): void {
-  res.writeHead(status, { "Content-Type": "application/json", ...HEADERS });
-  res.end(JSON.stringify(body));
-}
-
-// Writes chunks as they come, waiting when the client is slow. Once the
-// headers are out a failure can't become an error page, so the connection
-// is cut instead: the browser reports a failed download rather than saving
-// a file that silently stops partway.
-async function stream(res: http.ServerResponse, download: Download, correlationId: string): Promise<void> {
-  res.writeHead(200, { "Content-Type": download.type, "Content-Disposition": `attachment; filename="${download.filename}"`, ...HEADERS });
-  try {
-    for await (const chunk of download.chunks) {
-      if (res.destroyed) return;
-      if (!res.write(chunk)) await Promise.race([once(res, "drain"), once(res, "close")]);
-    }
-    res.end();
-  } catch (error) {
-    logJson("error", {
-      event: "console_download_interrupted",
-      correlationId,
-      outcome: "failure",
-      errorClass: error instanceof Error ? error.constructor.name : "UnknownError",
-      context: { filename: download.filename },
-    });
-    res.destroy();
-  }
-}
-
-export function readCookie(req: http.IncomingMessage, name: string): string | null {
-  for (const part of (req.headers.cookie ?? "").split(";")) {
-    const [k, ...v] = part.trim().split("=");
-    if (k === name) return v.join("=") || null;
-  }
-  return null;
-}
-
-function sessionCookie(id: string, secure: boolean, maxAgeSeconds: number): string {
-  return [`${SESSION_COOKIE}=${id}`, "Path=/console", "HttpOnly", "SameSite=Strict", `Max-Age=${maxAgeSeconds}`, ...(secure ? ["Secure"] : [])].join("; ");
-}
-
-function clientIp(req: http.IncomingMessage, trustProxy: boolean): string {
-  const forwarded = req.headers["fly-client-ip"];
-  if (trustProxy && typeof forwarded === "string" && forwarded) return forwarded;
-  return req.socket.remoteAddress ?? "unknown";
-}
-
-// Bodies beyond this are cut off by closing the connection; anything up to
-// it is read (and discarded once over maxBytes) so the client reliably gets
-// the 4xx answer instead of a connection reset mid-upload.
-const DRAIN_LIMIT_BYTES = 16 * 1024 * 1024;
-
-async function readForm(req: http.IncomingMessage, maxBytes = MAX_BODY_BYTES): Promise<URLSearchParams | null> {
-  const type = req.headers["content-type"] ?? "";
-  let size = 0;
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    size += (chunk as Buffer).length;
-    if (size > DRAIN_LIMIT_BYTES) {
-      req.destroy();
-      return null;
-    }
-    if (size <= maxBytes) chunks.push(chunk as Buffer);
-  }
-  if (size > maxBytes || !type.startsWith("application/x-www-form-urlencoded")) return null;
-  return new URLSearchParams(Buffer.concat(chunks).toString("utf8"));
-}
-
-function loginPage(message: string | null, username = ""): string {
-  return page({
-    title: "Sign in | Relay Console",
-    body: `<div class="card narrow">
-  <h1>Sign in</h1>
-  ${message ? `<p class="error" role="alert">${esc(message)}</p>` : ""}
-  <form method="post" action="/console/login" autocomplete="on">
-    <label for="username">Username</label>
-    <input id="username" name="username" autocomplete="username" required maxlength="32" value="${esc(username)}" autofocus>
-    <label for="password">Password</label>
-    <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="200">
-    <label for="code">Authenticator code</label>
-    <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" required maxlength="7" placeholder="6 digits">
-    <button class="full" type="submit">Sign in</button>
-  </form>
-</div>`,
-  });
-}
-
-function homePage(session: Session): string {
-  return page({
-    title: "Relay Console",
-    session,
-    body: `<div class="card">
-  <h1>Welcome, ${esc(session.username)}</h1>
-  <p>You're signed in to the Relay console as ${session.role === "engineer" ? "an engineer" : "an analyst"}.</p>
-  <p><a href="/console/batches">Batches</a>: upload a CSV and follow it.</p>
-  <p><a href="/console/review">Review</a>: decide the items the model wasn't sure about.</p>
-  <p><a href="/console/audit">Audit log</a>: every sign-in and action, who did it and when.</p>
-  <p class="muted">Failed jobs arrive next. Public status stays at <a href="/status">/status</a>.</p>
-</div>`,
-  });
-}
-
-function auditPage(session: Session, entries: Awaited<ReturnType<AuditLog["recent"]>>): string {
-  const rows = entries
-    .map(
-      (e) => `<tr><td>${esc(e.at.replace("T", " ").slice(0, 19))}</td><td>${esc(e.operator)}</td><td>${esc(e.action)}</td><td>${esc(e.target)}</td><td>${esc(e.outcome)}${e.detail ? ` <span class="muted">(${esc(e.detail)})</span>` : ""}</td></tr>`
-    )
-    .join("");
-  return page({
-    title: "Audit log | Relay Console",
-    session,
-    body: `<div class="card">
-  <h1>Audit log</h1>
-  <p class="muted">${session.role === "engineer" ? "Every operator's" : "Your"} most recent ${entries.length} event${entries.length === 1 ? "" : "s"}, newest first. Times are UTC. Kept for 90 days.</p>
-  <div style="overflow-x:auto"><table>
-    <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">Target</th><th scope="col">Outcome</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="5">Nothing recorded yet.</td></tr>`}</tbody>
-  </table></div>
-</div>`,
-  });
-}
 
 export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
   const now = deps.now ?? Date.now;

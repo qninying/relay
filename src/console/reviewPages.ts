@@ -177,7 +177,10 @@ export function reviewConsole(deps: ReviewConsoleDeps): ConsoleExtension {
       return RESOLVED.gone;
     }
     const check = buildDecision(item, form, await deps.getTaxonomy(), session.username, new Date());
-    if (!check.ok) return { status: check.status, message: check.message };
+    if (!check.ok) {
+      await auditResult(session, item.jobId, item.correlationId, false, `invalid: ${check.message}`);
+      return { status: check.status, message: check.message };
+    }
     let result: ResolveOutcome;
     try {
       result = await deps.results.resolveReview(item.batch!.batchId, item.jobId, deps.items.stream, item.messageId, check.outcome);

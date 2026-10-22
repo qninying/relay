@@ -33,6 +33,8 @@ import { BatchStore } from "./console/batches.js";
 import { BatchResults } from "./batchResults.js";
 import { batchRetentionDaysFromEnv } from "./batchRetention.js";
 import { reviewConsole } from "./console/reviewPages.js";
+import { failedConsole } from "./console/failedPages.js";
+import { FailedJobs } from "./console/failedJobs.js";
 import { ReviewItems } from "./console/reviewItems.js";
 import { cachedTaxonomy } from "./classifyJob.js";
 
@@ -107,10 +109,15 @@ async function main(): Promise<void> {
     audit,
     actions: new ActionRunner(redis, audit, trustProxy),
     // STORY-104/105: batch upload, submit, progress and results download.
-    // STORY-106: review decisions.
+    // STORY-106: review decisions. STORY-107: failed jobs (the DLQ; see
+    // failedJobs.ts for why it reads the DLQ directly).
     extensions: [
       batchConsole({ store: new BatchStore(redis, undefined, retentionDays), results: batchResults, queue, audit }),
       reviewConsole({ items: new ReviewItems(redis, reviewStream), results: batchResults, audit, getTaxonomy: cachedTaxonomy() }),
+      failedConsole({
+        failed: new FailedJobs(redis, dlqStream, STREAMS.jobs, `${STREAMS.jobs}:discarded`, process.env.RELAY_IDEMPOTENCY_PREFIX ?? `${STREAMS.jobs}:idem:`),
+        audit,
+      }),
     ],
     operators: new OperatorStore(redis),
     sessions: new SessionStore(redis),

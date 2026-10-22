@@ -89,6 +89,12 @@ unchanged and need no login.
    defend for real use: time to hand results on and answer questions about
    them). `fly.toml` sets 5 because this deployment is a portfolio project.
    Decided by Quincy.
+5. **Failed jobs screen reads the DLQ, not an escalation stream.** STORY-008's
+   automatic triage (`dlqTriage.ts`) runs only as a demo script; nothing in
+   production writes an escalation stream, so every DLQ entry is a job no one
+   has dealt with. STORY-107 lists the DLQ itself (`FailedJobs` takes the
+   stream as a parameter, so running triage in production later is a wiring
+   change). Assumed during STORY-107 and logged, not asked: reversible.
 
 ## Not covered
 

@@ -140,6 +140,7 @@ describe.skipIf(!redisAvailable)("review decisions (integration, real Redis, ove
     expect(noNote.status).toBe(422);
     expect(await noNote.text()).toContain("Add a note saying why");
     expect(await queued(entries[0])).toBe(true);
+    expect((await audit.recent(20)).find((e) => e.target === `${batchId}-1` && e.outcome === "rejected")!.detail).toContain("invalid: Add a note");
 
     expect((await decide(entries[0], { decision: "reject", note: "Not a company name" })).status).toBe(303);
     expect(await queued(entries[0])).toBe(false);
