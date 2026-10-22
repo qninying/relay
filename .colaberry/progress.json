@@ -3,13 +3,13 @@
   "project": "Relay: AI Agent Job Orchestration Platform",
   "totals": {
     "stories_total": 13,
-    "stories_verified": 7,
+    "stories_verified": 8,
     "stories_submitted": 0,
-    "stories_in_progress": 6,
+    "stories_in_progress": 5,
     "stories_not_started": 0,
     "criteria_total": 41,
-    "criteria_passed": 23,
-    "points_awarded": 2785
+    "criteria_passed": 26,
+    "points_awarded": 2847
   },
   "stories": [
     {
@@ -380,19 +380,15 @@
       "notes": "Low-confidence jobs (confidence < LOW_CONFIDENCE_THRESHOLD, now defined once in confidence.ts) are routed by jobRouter.ts to a separate review stream instead of being processed, and never to the DLQ (REQ-010). The review entry preserves the original job whole plus reason, confidence, threshold and routedAt. Wired into the worker loop and worker processes from STORY-006 (review stream defaults to '<stream>:review'). Criterion 1: routed to the review queue, verified against real Redis via peek() (XRANGE). Criterion 2: job_routed_to_review logged with the job's correlation ID and the review message id. Trust: the low-confidence job's own trail is job_low_confidence, job_dequeued, job_routed_to_review, all under one correlation ID. Failure paths: job does not route (review stream unwritable) retries 3 times with backoff, then falls back to the DLQ tagged review_queue_unavailable so it is neither lost nor resolved, and throws ReviewRouteFailedError if no DLQ is configured; the worker loop logs worker_job_unplaced and keeps running. Entry not logged: covered by the logging assertions. Auto-resolved: processJob itself now refuses low-confidence jobs (returns needs_review, logs job_not_auto_resolved, leaves the idempotency key unclaimed), so no other caller can resolve one either. Contract change: endToEnd.test.ts previously asserted a low-confidence job came back 'processed'; that is the behavior REQ-010 forbids, so it now expects needs_review. Verified: 109/109 tests, 10 consecutive full-suite runs, tsc --noEmit clean. Mutation checks: disabling routing failed 4 tests, removing the processJob guard failed 2. Demo (npx tsx src/runReviewRouting.ts): 6 jobs, the 3 below 0.5 in the review queue unresolved, 0.50 exactly processed, DLQ 0. Not built: a reviewer workflow to resolve review entries, and the MCP server's relay://jobs/needs-review resource still serves fixture data rather than reading this stream.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 186,
-        "outstanding": [
-          "Given a low-confidence job, When it is processed, Then it is routed to the review queue",
-          "Given a review queue, When a job is added, Then it is logged with a correlation ID",
-          "Trust: Low-confidence jobs are logged with correlation IDs"
-        ]
+        "verified_at": "2026-10-22T15:37:05.807Z",
+        "commit_sha": "b72e684da1a75a5989890331f692ae7f43feab92",
+        "commit_url": "https://github.com/qninying/relay/commit/b72e684da1a75a5989890331f692ae7f43feab92",
+        "commit_at": "2026-10-22T15:36:57Z",
+        "points_awarded": 248,
+        "outstanding": []
       }
     },
     {
