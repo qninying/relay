@@ -5,13 +5,16 @@
 // place.
 
 import { isLowConfidence } from "./confidence.js";
-import { processJob, type Job, type ProcessResult } from "./processJob.js";
-import type { IdempotencyStore } from "./idempotencyStore.js";
+import { processJob, processJobDurable, type Job, type ProcessResult } from "./processJob.js";
+import type { DurableIdempotencyStore, IdempotencyStore } from "./idempotencyStore.js";
 import type { RedisStreamQueue } from "./queue.js";
 import { routeToReviewQueue, type ReviewRouteOptions, type ReviewRouteResult } from "./reviewQueue.js";
 
 export interface JobRouting {
   store: IdempotencyStore;
+  // STORY-009: when set, the idempotency claim is made here (shared across
+  // worker processes) instead of in the per-process store.
+  durableStore?: DurableIdempotencyStore;
   reviewQueue?: RedisStreamQueue;
   reviewOptions?: ReviewRouteOptions;
 }
@@ -24,5 +27,6 @@ export async function routeJob(job: Job, routing: JobRouting): Promise<RouteOutc
   }
   // Without a review queue, processJob's own guard still refuses to resolve a
   // low-confidence job (returns needs_review and logs job_not_auto_resolved).
-  return { route: "process", result: processJob(job, routing.store) };
+  const result = routing.durableStore ? await processJobDurable(job, routing.durableStore) : processJob(job, routing.store);
+  return { route: "process", result };
 }

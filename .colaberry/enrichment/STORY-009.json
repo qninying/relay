@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-009",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-10-22T18:30:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "systems",
+      "value": "Workers ack a job only after handling it and reclaim work left pending by dead workers (XAUTOCLAIM); delivery is at-least-once, made exactly-once in effect by a Redis idempotency store shared across worker processes.",
+      "evidence": "src/workerLoop.ts, src/queue.ts, src/idempotencyStore.ts"
+    },
+    {
+      "dimension": "constraints",
+      "value": "A job delivered more than 5 times (maxDeliveries) is dead-lettered as max_deliveries_exceeded rather than retried forever.",
+      "evidence": "src/workerLoop.ts"
+    },
+    {
+      "dimension": "integrations",
+      "value": "The chaos drill is runnable code with a written runbook, and only runs against a local Redis.",
+      "evidence": "src/chaosDrill.ts, docs/runbooks/CHAOS_DRILL.md"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Switched workers from ack-on-delivery to ack-after-processing with reclaim.",
+      "rationale": "with ack-on-delivery a worker killed mid-job loses that job, which this story's first criterion forbids; the drill demonstrated the loss (2 jobs) before the fix was in.",
+      "evidence": "src/workerLoop.ts, docs/runbooks/CHAOS_DRILL.md"
+    },
+    {
+      "statement": "Kept dequeueOne (ack on delivery) for DLQ triage reads and existing callers; only the worker loop moved to readNew + ack.",
+      "rationale": "smallest change that fixes the loss where it matters, without changing behaviour of triage and earlier stories' tests.",
+      "evidence": "src/queue.ts"
+    },
+    {
+      "statement": "The drill counts a kill as recovered only when a different worker handled the exact stream message the killed one held, matched by message id.",
+      "rationale": "the first version counted 'some other worker finished this job id', which a duplicate copy of the same job could satisfy without any recovery happening.",
+      "evidence": "src/chaosDrill.ts"
+    },
+    {
+      "statement": "The drill was run with each protection removed to show it fails (ack-on-delivery: jobs lost; per-process idempotency: duplicates).",
+      "rationale": "a drill that has never failed proves nothing; recorded in the runbook.",
+      "evidence": "docs/runbooks/CHAOS_DRILL.md"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Redis failure is not drilled; one Redis holds the queue, DLQ, retry policy and idempotency keys.",
+      "evidence": "docs/runbooks/CHAOS_DRILL.md"
+    },
+    {
+      "statement": "The idempotency claim is the commit point. Real side effects added to workers later must be keyed by the same idempotency key or happen atomically with the claim.",
+      "evidence": "docs/runbooks/CHAOS_DRILL.md, src/processJob.ts"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/chaos.test.ts" },
+    { "kind": "test", "ref": "src/workerLoop.test.ts" }
+  ],
+  "measurementEvents": []
+}

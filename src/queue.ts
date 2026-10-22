@@ -16,6 +16,13 @@ import { isLowConfidence, reviewThresholdFor } from "./confidence.js";
 
 export class BacklogUnknownError extends Error {}
 
+export interface Delivery {
+  job: Job;
+  messageId: string;
+  // How many times this message has been handed to a consumer (1 = first).
+  deliveryCount: number;
+}
+
 export interface EnqueueResult {
   messageId: string;
 }
@@ -97,6 +104,20 @@ export class RedisStreamQueue {
   // Returns null when there's nothing to read — not an error, just an empty
   // queue at this instant.
   async dequeueOne(consumerName: string): Promise<Job | null> {
+    const delivery = await this.readNew(consumerName);
+    if (!delivery) return null;
+    // Acks on delivery: used where losing a message to a crash mid-handling
+    // is acceptable (DLQ triage reads, tests). Workers use readNew() + ack()
+    // instead, acking only after processing (STORY-009).
+    await this.ack(delivery.messageId);
+    return delivery.job;
+  }
+
+  // STORY-009: read one new message WITHOUT acking it. It stays in the
+  // group's pending list until ack() is called, so if this worker dies
+  // mid-job another worker can reclaim it (reclaimStale) instead of it being
+  // lost. Returns null when there's nothing new.
+  async readNew(consumerName: string): Promise<Delivery | null> {
     const response = await this.redis.xreadgroup(
       "GROUP",
       this.groupName,
@@ -117,6 +138,43 @@ export class RedisStreamQueue {
     }
 
     const [messageId, fields] = messages[0];
+    return { job: this.parse(messageId, fields), messageId, deliveryCount: 1 };
+  }
+
+  async ack(messageId: string): Promise<void> {
+    await this.redis.xack(this.streamKey, this.groupName, messageId);
+  }
+
+  // STORY-009: take over messages another consumer read but never acked
+  // within minIdleMs, which is what a worker killed mid-job leaves behind
+  // (XAUTOCLAIM). minIdleMs must be longer than any real job takes, or a
+  // slow-but-alive worker's job gets processed twice (the durable
+  // idempotency claim still stops a duplicate, but the work is wasted).
+  // deliveryCount comes from XPENDING so a message that keeps killing
+  // workers can be dead-lettered rather than retried forever.
+  async reclaimStale(consumerName: string, minIdleMs: number, count = 10): Promise<Delivery[]> {
+    const response = (await this.redis.xautoclaim(this.streamKey, this.groupName, consumerName, minIdleMs, "0-0", "COUNT", count)) as [
+      string,
+      Array<[string, string[]] | null>,
+      string[]?,
+    ];
+    const claimed = (response?.[1] ?? []).filter((entry): entry is [string, string[]] => Array.isArray(entry) && Array.isArray(entry[1]));
+    const deliveries: Delivery[] = [];
+    for (const [messageId, fields] of claimed) {
+      const pending = (await this.redis.xpending(this.streamKey, this.groupName, messageId, messageId, 1)) as Array<[string, string, number, number]>;
+      const deliveryCount = pending[0]?.[3] ?? 1;
+      const job = this.parse(messageId, fields);
+      logJson("warn", {
+        event: "job_reclaimed",
+        correlationId: job.correlationId,
+        context: { jobId: job.id, messageId, consumer: consumerName, deliveryCount, minIdleMs },
+      });
+      deliveries.push({ job, messageId, deliveryCount });
+    }
+    return deliveries;
+  }
+
+  private parse(messageId: string, fields: string[]): Job {
     const dataIndex = fields.indexOf("data");
     if (dataIndex === -1) {
       throw new Error(`Stream message ${messageId} has no "data" field`);
@@ -137,14 +195,6 @@ export class RedisStreamQueue {
       correlationId: job.correlationId,
       context: { jobId: job.id, messageId },
     });
-
-    // Ack after the job is handed back to the caller, not before — an ack
-    // here just means "delivered," matching this story's minimal scope. A
-    // caller that wants ack-after-processing (so a crash mid-handling leaves
-    // the message claimable again) composes that itself; DLQ/retry semantics
-    // are REQ-004/REQ-015, STORY-004/STORY-008.
-    await this.redis.xack(this.streamKey, this.groupName, messageId);
-
     return job;
   }
 }

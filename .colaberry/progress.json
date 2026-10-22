@@ -446,20 +446,36 @@
       "criteria": [
         {
           "text": "Given a chaos drill, When a worker is killed mid-job, Then the system recovers without data loss",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a queue backlog, When it is forced, Then the system processes jobs without duplicates",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Chaos drill events are logged with correlation IDs",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "src/chaosDrill.ts",
+        "src/runChaosDrill.ts",
+        "src/chaos.test.ts",
+        "src/queue.ts",
+        "src/workerLoop.ts",
+        "src/workerLoop.test.ts",
+        "src/workerProcess.ts",
+        "src/processWorkerPool.ts",
+        "src/processJob.ts",
+        "src/idempotencyStore.ts",
+        "src/jobRouter.ts",
+        "docs/runbooks/CHAOS_DRILL.md",
+        "docs/runbooks/DLQ_TRIAGE.md"
+      ],
+      "tests_added": [
+        "src/chaos.test.ts"
+      ],
+      "notes": "Fixed the gap that made this story's first criterion impossible: jobs were acked on delivery, so a worker killed mid-job lost its job. Workers now read without acking (queue.readNew), ack only after the job is handled, and take over work a dead worker left pending (queue.reclaimStale, XAUTOCLAIM, with delivery counts from XPENDING). A message delivered more than maxDeliveries times goes to the DLQ (max_deliveries_exceeded) instead of crashing workers forever. Duplicate protection is now shared across worker processes (RedisIdempotencyStore, SET NX with 7-day expiry; processJobDurable), closing STORY-006's per-process limitation. The drill (chaosDrill.ts, runner runChaosDrill.ts, runbook docs/runbooks/CHAOS_DRILL.md) runs real forked worker processes against real Redis, forces a backlog including duplicate producer submissions, SIGKILLs workers while they hold a job (spread across the run), replaces them, and checks every job was processed exactly once. It refuses non-local Redis, uses drill-scoped keys, and always stops workers and deletes its keys. Criterion 1: kills land mid-job and a different worker handles the exact message the killed one held (matched by message id); 0 lost, 0 pending. Criterion 2: 120 jobs + 20 duplicate submissions processed exactly once, 20 skipped as duplicates; also holds under aggressive reclaim (reclaim 20ms < work 100ms, Drill B). Trust: chaos_drill_started / chaos_backlog_forced / chaos_fault_injected / chaos_worker_replaced / chaos_drill_completed all carry the drill's correlation ID, and each recovered job keeps its own correlation ID across workers (job_dequeued, job_reclaimed, job_processed / job_skipped_duplicate). Verified: drill A PASS x5 and drill B PASS x2 via npx tsx src/runChaosDrill.ts; drill shown to fail when protection is removed (ack-on-delivery: 2 lost, FAILED; per-process store under Drill B: 20 duplicates, FAILED), both reverted. 184/184 tests on 10 consecutive full-suite runs (7 new in chaos.test.ts incl. the drill itself, crash-after-claim-before-ack, poison message, cross-connection idempotency, non-local refusal), no orphan worker processes or leftover drill keys afterwards, tsc --noEmit clean. Limitations: Redis itself failing is not drilled (single Redis holds queue, DLQ, policy and idempotency keys; STORY-010); the idempotency claim is the commit point, so real side effects added to workers later must be keyed by the same idempotency key; no external-call faults inside workers yet.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",

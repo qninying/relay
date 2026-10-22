@@ -8,19 +8,27 @@ function job(n: number): Job {
   return { id: `job-${n}`, correlationId: `corr-${n}`, idempotencyKey: `idem-${n}`, payload: {} };
 }
 
-function fakeQueue(script: Array<Job | null | Error>, onEmpty?: () => void): RedisStreamQueue {
+// STORY-009: the loop reads with readNew() and acks after processing, and
+// checks reclaimStale(); this fake scripts readNew and records acks.
+function fakeQueue(script: Array<Job | null | Error>, onEmpty?: () => void): RedisStreamQueue & { acked: string[] } {
   let i = 0;
+  const acked: string[] = [];
   return {
-    dequeueOne: async () => {
+    acked,
+    readNew: async () => {
       if (i >= script.length) {
         onEmpty?.();
         return null;
       }
       const next = script[i++];
       if (next instanceof Error) throw next;
-      return next;
+      return next ? { job: next, messageId: `m-${next.id}`, deliveryCount: 1 } : null;
     },
-  } as unknown as RedisStreamQueue;
+    reclaimStale: async () => [],
+    ack: async (messageId: string) => {
+      acked.push(messageId);
+    },
+  } as unknown as RedisStreamQueue & { acked: string[] };
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -37,6 +45,8 @@ describe("runWorkerLoop", () => {
       idlePollMs: 1,
     });
     expect(result).toEqual({ processed: 3, stoppedBecause: "signal" });
+    // STORY-009: each job acked once, after it was handled.
+    expect(queue.acked).toEqual(["m-job-1", "m-job-2", "m-job-3"]);
   });
 
   it("recovers from a transient dequeue error, logging it with the worker's correlation ID", async () => {

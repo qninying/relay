@@ -34,6 +34,9 @@ export interface ProcessWorkerPoolOptions {
   execArgv?: string[];
   // Node binary to run workers with; defaults to the current one.
   execPath?: string;
+  // Extra environment for every worker (e.g. STORY-009's drill settings
+  // RELAY_SIMULATED_WORK_MS, RELAY_RECLAIM_IDLE_MS).
+  env?: Record<string, string>;
   // Each line a worker writes to stdout/stderr. Defaults to passing it
   // through unchanged, so worker logs land in the same stream as the pool's.
   onOutput?: (workerId: string, line: string) => void;
@@ -72,6 +75,19 @@ export class ProcessWorkerPool implements WorkerPool {
     return this.workers.size;
   }
 
+  // STORY-009 chaos drills only: kill one worker without warning, the way a
+  // crashed host or OOM kill would. The exit is logged as unexpected (it
+  // isn't marked stopping), exactly like a real crash. Resolves once the
+  // process has exited; returns its pid, or null if no such worker.
+  async killWorker(workerId: string, signal: NodeJS.Signals = "SIGKILL"): Promise<number | null> {
+    const worker = this.workers.get(workerId);
+    if (!worker || worker.child.pid === undefined) return null;
+    const pid = worker.child.pid;
+    worker.child.kill(signal);
+    await worker.exited;
+    return pid;
+  }
+
   async stopAll(correlationId: string): Promise<void> {
     await this.scaleTo(0, correlationId);
   }
@@ -85,6 +101,7 @@ export class ProcessWorkerPool implements WorkerPool {
         execPath: this.options.execPath,
         env: {
           ...process.env,
+          ...this.options.env,
           RELAY_WORKER_ID: workerId,
           RELAY_CORRELATION_ID: correlationId,
           RELAY_STREAM_KEY: this.options.streamKey,

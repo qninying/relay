@@ -11,13 +11,21 @@
 
 import { Redis } from "ioredis";
 import { logJson } from "./logger.js";
-import { InMemoryIdempotencyStore } from "./idempotencyStore.js";
+import { InMemoryIdempotencyStore, RedisIdempotencyStore } from "./idempotencyStore.js";
 import { RedisStreamQueue } from "./queue.js";
 import { runWorkerLoop } from "./workerLoop.js";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`workerProcess: missing required env ${name}`);
+  return value;
+}
+
+function optionalNumber(name: string): number | undefined {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return undefined;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) throw new Error(`workerProcess: env ${name} must be a non-negative number`);
   return value;
 }
 
@@ -43,10 +51,9 @@ async function main(): Promise<number> {
 
   logJson("info", { event: "worker_started", correlationId, context: { workerId, pid: process.pid } });
 
-  // Per-process store: correct today because a consumer group delivers each
-  // entry to exactly one consumer. Cross-process duplicate protection on
-  // redelivery needs a shared (Redis-backed) store; that's STORY-008's retry
-  // work, named as a limitation rather than built here.
+  // The in-memory store is only the fallback the loop's signature requires;
+  // durableStore below (Redis, shared by every worker) makes the actual
+  // claim, so a job redelivered to another worker after a crash is skipped.
   const queue = new RedisStreamQueue(redis, streamKey, groupName);
   // STORY-007: review and DLQ streams default to siblings of the main stream.
   // Group names only matter to whoever consumes them (a reviewer, DLQ
@@ -59,6 +66,11 @@ async function main(): Promise<number> {
     signal: controller.signal,
     reviewQueue,
     dlq,
+    // STORY-009: shared across all workers, so redelivery can't duplicate.
+    durableStore: new RedisIdempotencyStore(redis, process.env.RELAY_IDEMPOTENCY_PREFIX ?? `${streamKey}:idem:`),
+    reclaimIdleMs: optionalNumber("RELAY_RECLAIM_IDLE_MS"),
+    maxDeliveries: optionalNumber("RELAY_MAX_DELIVERIES"),
+    simulatedWorkMs: optionalNumber("RELAY_SIMULATED_WORK_MS"),
   });
 
   logJson(result.stoppedBecause === "signal" ? "info" : "error", {

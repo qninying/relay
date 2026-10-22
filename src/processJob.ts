@@ -6,7 +6,7 @@
 // acceptance criteria ask for.
 
 import { logJson } from "./logger.js";
-import type { IdempotencyStore } from "./idempotencyStore.js";
+import type { DurableIdempotencyStore, IdempotencyStore } from "./idempotencyStore.js";
 import type { MetricsCollector } from "./metrics.js";
 import { isLowConfidence } from "./confidence.js";
 
@@ -34,7 +34,38 @@ export type ProcessResult =
 // keeps STORY-001/002/003's exact original behavior, no metrics recorded.
 export function processJob(job: Job, store: IdempotencyStore, metrics?: MetricsCollector): ProcessResult {
   const startedAt = Date.now();
+  const refused = beginJob(job);
+  if (refused) return refused;
+  let claim: ClaimOutcome;
+  try {
+    claim = { claimed: store.claim(job.idempotencyKey) };
+  } catch (error) {
+    claim = { error };
+  }
+  return finishJob(job, claim, startedAt, metrics);
+}
 
+// STORY-009: same rules as processJob, with the idempotency claim made in a
+// store shared by every worker process (Redis), so a job redelivered to a
+// different worker after a crash is still recognised as already processed.
+export async function processJobDurable(job: Job, store: DurableIdempotencyStore, metrics?: MetricsCollector): Promise<ProcessResult> {
+  const startedAt = Date.now();
+  const refused = beginJob(job);
+  if (refused) return refused;
+  let claim: ClaimOutcome;
+  try {
+    claim = { claimed: await store.claim(job.idempotencyKey) };
+  } catch (error) {
+    claim = { error };
+  }
+  return finishJob(job, claim, startedAt, metrics);
+}
+
+type ClaimOutcome = { claimed: boolean } | { error: unknown };
+
+// Logs receipt, and refuses a low-confidence job before any claim is made.
+// Returns the refusal, or null to carry on.
+function beginJob(job: Job): ProcessResult | null {
   logJson("info", {
     event: "job_received",
     correlationId: job.correlationId,
@@ -54,12 +85,12 @@ export function processJob(job: Job, store: IdempotencyStore, metrics?: MetricsC
     });
     return { status: "needs_review" };
   }
+  return null;
+}
 
-  let claimed: boolean;
-  try {
-    claimed = store.claim(job.idempotencyKey);
-  } catch (error) {
-    const errorClass = error instanceof Error ? error.constructor.name : "UnknownError";
+function finishJob(job: Job, claim: ClaimOutcome, startedAt: number, metrics?: MetricsCollector): ProcessResult {
+  if ("error" in claim) {
+    const errorClass = claim.error instanceof Error ? claim.error.constructor.name : "UnknownError";
     logJson("error", {
       event: "job_failed",
       correlationId: job.correlationId,
@@ -71,7 +102,7 @@ export function processJob(job: Job, store: IdempotencyStore, metrics?: MetricsC
     return { status: "failed", errorClass };
   }
 
-  if (!claimed) {
+  if (!claim.claimed) {
     logJson("info", {
       event: "job_skipped_duplicate",
       correlationId: job.correlationId,

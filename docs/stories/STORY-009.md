@@ -27,8 +27,8 @@ the same criteria out of `.colaberry/progress.json`, which Claude Code keeps in
 step (see the managed block in CLAUDE.md). Ticking something you have not
 actually met only misleads you.
 
-- [ ] Given a chaos drill, When a worker is killed mid-job, Then the system recovers without data loss
-- [ ] Given a queue backlog, When it is forced, Then the system processes jobs without duplicates
-- [ ] Trust: Chaos drill events are logged with correlation IDs
+- [x] Given a chaos drill, When a worker is killed mid-job, Then the system recovers without data loss
+- [x] Given a queue backlog, When it is forced, Then the system processes jobs without duplicates
+- [x] Trust: Chaos drill events are logged with correlation IDs
 
 When every box above is ticked, stop and show the demo.

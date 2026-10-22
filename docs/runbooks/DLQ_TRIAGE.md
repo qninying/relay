@@ -6,7 +6,7 @@ steps to actually follow.
 
 ## What lands here, and why
 
-A job reaches the DLQ two ways:
+A job reaches the DLQ three ways:
 
 1. `callExternalApiAndPersist()` (`src/callExternalApi.ts`) exhausts every
    retry against an external API and `withReliability` throws
@@ -15,6 +15,12 @@ A job reaches the DLQ two ways:
    attempts (STORY-007). Its `failureReason` is exactly
    `review_queue_unavailable`. It was never resolved; it only needs to be
    resubmitted once Redis is healthy.
+3. A job was delivered to workers more than `maxDeliveries` times (default
+   5) without ever finishing, i.e. it keeps crashing or failing every worker
+   that takes it (STORY-009). Its `failureReason` starts with
+   `max_deliveries_exceeded`. Automated triage classifies this as
+   unclassified and escalates it: look at the job's payload for what makes
+   it poison before resubmitting anything. See `CHAOS_DRILL.md`.
 
 **What does NOT land here:** a circuit-open rejection (`CircuitOpenError`).
 If the breaker is open, the call was never attempted at all — that's not
