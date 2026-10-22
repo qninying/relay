@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { logJson } from "./logger.js";
+import { logJson, getDroppedLogCount } from "./logger.js";
 
 describe("logJson", () => {
   afterEach(() => {
@@ -55,5 +55,16 @@ describe("logJson", () => {
 
     const ids = spy.mock.calls.map((call) => JSON.parse(call[0] as string).correlationId);
     expect(ids).toEqual(["corr-4", "corr-4"]);
+  });
+
+  it("never throws when the output stream itself is broken, and counts the lost line", () => {
+    const broken = () => {
+      throw new Error("EPIPE");
+    };
+    vi.spyOn(console, "log").mockImplementation(broken);
+    vi.spyOn(console, "error").mockImplementation(broken);
+    const before = getDroppedLogCount();
+    expect(() => logJson("info", { event: "job_received", correlationId: "corr-5" })).not.toThrow();
+    expect(getDroppedLogCount()).toBe(before + 1);
   });
 });

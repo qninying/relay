@@ -27,8 +27,8 @@ the same criteria out of `.colaberry/progress.json`, which Claude Code keeps in
 step (see the managed block in CLAUDE.md). Ticking something you have not
 actually met only misleads you.
 
-- [ ] Given a classification task, When it is executed, Then it uses the fixed taxonomy
-- [ ] Given a classification task, When the taxonomy is unavailable, Then the task fails gracefully
-- [ ] Trust: Given a classification task, Then its execution is logged with the taxonomy version
+- [x] Given a classification task, When it is executed, Then it uses the fixed taxonomy
+- [x] Given a classification task, When the taxonomy is unavailable, Then the task fails gracefully
+- [x] Trust: Given a classification task, Then its execution is logged with the taxonomy version
 
 When every box above is ticked, stop and show the demo.

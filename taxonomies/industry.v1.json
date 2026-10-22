@@ -1,0 +1,20 @@
+{
+  "id": "industry",
+  "version": "1.0.0",
+  "description": "Industry classification for lead and account enrichment. Fixed: classifiers may only return one of these codes. Changing this file requires a new version and an updated pinned hash in src/taxonomy.ts.",
+  "reviewThreshold": 0.5,
+  "labels": [
+    { "code": "software", "name": "Software & SaaS", "description": "Companies whose primary product is software, including SaaS, developer tools and platforms." },
+    { "code": "financial_services", "name": "Financial Services", "description": "Banks, insurers, lenders, payments, asset management and fintech." },
+    { "code": "healthcare", "name": "Healthcare & Life Sciences", "description": "Providers, payers, pharma, biotech and medical devices." },
+    { "code": "manufacturing", "name": "Manufacturing", "description": "Industrial, discrete and process manufacturing." },
+    { "code": "retail_ecommerce", "name": "Retail & E-commerce", "description": "Physical and online retail, consumer brands sold direct." },
+    { "code": "logistics", "name": "Logistics & Transportation", "description": "Freight, shipping, warehousing, fleets and supply-chain services." },
+    { "code": "professional_services", "name": "Professional Services", "description": "Consulting, legal, accounting, staffing and agencies." },
+    { "code": "education", "name": "Education", "description": "Schools, universities, edtech and training providers." },
+    { "code": "energy_utilities", "name": "Energy & Utilities", "description": "Oil and gas, renewables, power generation and utilities." },
+    { "code": "media_entertainment", "name": "Media & Entertainment", "description": "Publishing, broadcasting, gaming, film and music." },
+    { "code": "public_sector", "name": "Public Sector & Nonprofit", "description": "Government agencies and nonprofit organisations." },
+    { "code": "other", "name": "Other", "description": "Clearly identifiable but outside every category above. Not for unclear inputs; those should come back with low confidence." }
+  ]
+}

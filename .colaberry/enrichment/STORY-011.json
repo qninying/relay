@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-011",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-10-22T17:00:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "data",
+      "value": "Classification uses a fixed industry taxonomy (taxonomies/industry.v1.json, version 1.0.0, 12 codes) pinned in code by SHA-256.",
+      "evidence": "taxonomies/industry.v1.json, src/taxonomy.ts"
+    },
+    {
+      "dimension": "constraints",
+      "value": "The review threshold for low-confidence classifications belongs to the taxonomy file; the global 0.5 constant is only a fallback for jobs without one.",
+      "evidence": "src/confidence.ts, taxonomies/industry.v1.json"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "The taxonomy is pinned by SHA-256 and version in code, and any mismatch refuses to load.",
+      "rationale": "'fixed, pre-defined' has to be enforced: a quiet edit to the labels would reclassify every job against categories nobody approved, with nothing in the logs to show it happened.",
+      "evidence": "src/taxonomy.ts"
+    },
+    {
+      "statement": "Classifier output must match a taxonomy code exactly; near-misses like 'Software' are rejected, not normalised.",
+      "rationale": "normalising guesses at what the classifier meant, which is the drift the taxonomy exists to prevent; a rejection is visible and fixable.",
+      "evidence": "src/classifyJob.ts, src/classifyJob.test.ts"
+    },
+    {
+      "statement": "logJson never throws when the output stream is broken; it counts dropped lines instead, and audit-critical results carry their own audit fields.",
+      "rationale": "the story's 'logging service unavailable' path: logging must not take down the job it describes, and the loss must stay visible rather than silent.",
+      "evidence": "src/logger.ts, src/classifyJob.ts"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "No real LLM or vendor classifier is wired in; classifyJob takes the classifier as a function, and the demo uses a keyword stand-in.",
+      "evidence": "src/classifyJob.ts, src/runClassification.ts"
+    },
+    {
+      "statement": "The dropped-log counter is in-process only; nothing reports it outside the process yet (STORY-010 monitoring).",
+      "evidence": "src/logger.ts"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/classifyJob.test.ts" },
+    { "kind": "test", "ref": "src/logger.test.ts" }
+  ],
+  "measurementEvents": []
+}

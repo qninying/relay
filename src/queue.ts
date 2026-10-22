@@ -12,7 +12,7 @@
 import type { Redis } from "ioredis";
 import { logJson } from "./logger.js";
 import type { Job } from "./processJob.js";
-import { isLowConfidence, LOW_CONFIDENCE_THRESHOLD } from "./confidence.js";
+import { isLowConfidence, reviewThresholdFor } from "./confidence.js";
 
 export class BacklogUnknownError extends Error {}
 
@@ -128,7 +128,7 @@ export class RedisStreamQueue {
         event: "job_low_confidence",
         correlationId: job.correlationId,
         outcome: "skipped",
-        context: { jobId: job.id, confidence: job.confidence, threshold: LOW_CONFIDENCE_THRESHOLD },
+        context: { jobId: job.id, confidence: job.confidence, threshold: reviewThresholdFor(job) },
       });
     }
 

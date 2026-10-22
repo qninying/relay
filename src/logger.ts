@@ -40,14 +40,32 @@ export function logJson(level: LogLevel, fields: LogFields): void {
   } catch (error) {
     // Fallback line carries only what's guaranteed serializable — never the
     // original context, which is presumably what broke JSON.stringify.
-    writeLine("error", {
-      timestamp: new Date().toISOString(),
-      level: "error",
-      service: "relay-core",
-      event: "log_serialization_failed",
-      correlationId: fields.correlationId,
-      errorClass: error instanceof Error ? error.constructor.name : "UnknownError",
-      originalEvent: fields.event,
-    });
+    try {
+      writeLine("error", {
+        timestamp: new Date().toISOString(),
+        level: "error",
+        service: "relay-core",
+        event: "log_serialization_failed",
+        correlationId: fields.correlationId,
+        errorClass: error instanceof Error ? error.constructor.name : "UnknownError",
+        originalEvent: fields.event,
+      });
+    } catch {
+      // STORY-011/012 "logging service unavailable": the output stream itself
+      // is broken, so there is nowhere to write. Logging must never take down
+      // the job it describes; the loss is counted (getDroppedLogCount) rather
+      // than thrown or silently ignored.
+      droppedLogCount += 1;
+    }
   }
+}
+
+let droppedLogCount = 0;
+
+// How many log lines could not be written at all since the process started.
+// Non-zero means the audit trail has gaps; callers whose results must stay
+// auditable (classification, summaries) also carry their audit fields in the
+// result itself for exactly this case.
+export function getDroppedLogCount(): number {
+  return droppedLogCount;
 }

@@ -14,14 +14,21 @@
 import type { RedisStreamQueue } from "./queue.js";
 import { logJson } from "./logger.js";
 import type { Job } from "./processJob.js";
-import { LOW_CONFIDENCE_THRESHOLD } from "./confidence.js";
+import { reviewThresholdFor } from "./confidence.js";
 import { moveToDeadLetterQueue } from "./dlq.js";
 
 export const REVIEW_FALLBACK_REASON = "review_queue_unavailable";
 
 export class ReviewRouteFailedError extends Error {}
 
+// low_confidence: STORY-007. ungrounded_summary: STORY-012, a summary the
+// grounding guardrail rejected.
+export type ReviewReason = "low_confidence" | "ungrounded_summary";
+
 export interface ReviewRouteOptions {
+  reason?: ReviewReason;
+  // Extra context for the reviewer, stored on the entry (e.g. violations).
+  details?: Record<string, unknown>;
   dlq?: RedisStreamQueue;
   maxAttempts?: number;
   backoffMs?: number;
@@ -31,17 +38,19 @@ export type ReviewRouteResult = { routedTo: "review"; attempts: number } | { rou
 
 // The original job is preserved whole (same as a DLQ entry), plus why it
 // needs review, so a reviewer sees exactly what the worker saw.
-function buildReviewEntry(job: Job): Job {
+function buildReviewEntry(job: Job, reason: ReviewReason, details: Record<string, unknown>): Job {
   return {
     id: job.id,
     correlationId: job.correlationId,
     idempotencyKey: job.idempotencyKey,
     confidence: job.confidence,
+    reviewThreshold: job.reviewThreshold,
     payload: {
       originalPayload: job.payload,
-      reason: "low_confidence",
+      reason,
       confidence: job.confidence,
-      threshold: LOW_CONFIDENCE_THRESHOLD,
+      threshold: reviewThresholdFor(job),
+      ...details,
       routedAt: new Date().toISOString(),
     },
   };
@@ -54,7 +63,8 @@ export async function routeToReviewQueue(
 ): Promise<ReviewRouteResult> {
   const maxAttempts = options.maxAttempts ?? 3;
   const backoffMs = options.backoffMs ?? 200;
-  const entry = buildReviewEntry(job);
+  const reason = options.reason ?? "low_confidence";
+  const entry = buildReviewEntry(job, reason, options.details ?? {});
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -63,7 +73,7 @@ export async function routeToReviewQueue(
         event: "job_routed_to_review",
         correlationId: job.correlationId,
         outcome: "success",
-        context: { jobId: job.id, confidence: job.confidence, threshold: LOW_CONFIDENCE_THRESHOLD, messageId, attempt },
+        context: { jobId: job.id, reason, confidence: job.confidence, threshold: reviewThresholdFor(job), messageId, attempt },
       });
       return { routedTo: "review", attempts: attempt };
     } catch (error) {

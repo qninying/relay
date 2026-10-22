@@ -19,6 +19,9 @@ export interface Job {
   // (confidence.ts) the job is logged (REQ-011, STORY-002) and routed to the
   // review queue instead of being resolved (REQ-010, STORY-007).
   confidence?: number;
+  // STORY-011: the review threshold from the taxonomy that produced this
+  // confidence. When absent, LOW_CONFIDENCE_THRESHOLD applies.
+  reviewThreshold?: number;
 }
 
 export type ProcessResult =
