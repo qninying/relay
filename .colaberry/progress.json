@@ -3,13 +3,13 @@
   "project": "Relay: AI Agent Job Orchestration Platform",
   "totals": {
     "stories_total": 13,
-    "stories_verified": 10,
+    "stories_verified": 12,
     "stories_submitted": 0,
-    "stories_in_progress": 3,
+    "stories_in_progress": 1,
     "stories_not_started": 0,
     "criteria_total": 41,
-    "criteria_passed": 32,
-    "points_awarded": 2971
+    "criteria_passed": 38,
+    "points_awarded": 3095
   },
   "stories": [
     {
@@ -478,19 +478,15 @@
       "notes": "Fixed the gap that made this story's first criterion impossible: jobs were acked on delivery, so a worker killed mid-job lost its job. Workers now read without acking (queue.readNew), ack only after the job is handled, and take over work a dead worker left pending (queue.reclaimStale, XAUTOCLAIM, with delivery counts from XPENDING). A message delivered more than maxDeliveries times goes to the DLQ (max_deliveries_exceeded) instead of crashing workers forever. Duplicate protection is now shared across worker processes (RedisIdempotencyStore, SET NX with 7-day expiry; processJobDurable), closing STORY-006's per-process limitation. The drill (chaosDrill.ts, runner runChaosDrill.ts, runbook docs/runbooks/CHAOS_DRILL.md) runs real forked worker processes against real Redis, forces a backlog including duplicate producer submissions, SIGKILLs workers while they hold a job (spread across the run), replaces them, and checks every job was processed exactly once. It refuses non-local Redis, uses drill-scoped keys, and always stops workers and deletes its keys. Criterion 1: kills land mid-job and a different worker handles the exact message the killed one held (matched by message id); 0 lost, 0 pending. Criterion 2: 120 jobs + 20 duplicate submissions processed exactly once, 20 skipped as duplicates; also holds under aggressive reclaim (reclaim 20ms < work 100ms, Drill B). Trust: chaos_drill_started / chaos_backlog_forced / chaos_fault_injected / chaos_worker_replaced / chaos_drill_completed all carry the drill's correlation ID, and each recovered job keeps its own correlation ID across workers (job_dequeued, job_reclaimed, job_processed / job_skipped_duplicate). Verified: drill A PASS x5 and drill B PASS x2 via npx tsx src/runChaosDrill.ts; drill shown to fail when protection is removed (ack-on-delivery: 2 lost, FAILED; per-process store under Drill B: 20 duplicates, FAILED), both reverted. 184/184 tests on 10 consecutive full-suite runs (7 new in chaos.test.ts incl. the drill itself, crash-after-claim-before-ack, poison message, cross-connection idempotency, non-local refusal), no orphan worker processes or leftover drill keys afterwards, tsc --noEmit clean. Limitations: Redis itself failing is not drilled (single Redis holds queue, DLQ, policy and idempotency keys; STORY-010); the idempotency claim is the commit point, so real side effects added to workers later must be keyed by the same idempotency key; no external-call faults inside workers yet.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 186,
-        "outstanding": [
-          "Given a chaos drill, When a worker is killed mid-job, Then the system recovers without data loss",
-          "Given a queue backlog, When it is forced, Then the system processes jobs without duplicates",
-          "Trust: Chaos drill events are logged with correlation IDs"
-        ]
+        "verified_at": "2026-10-22T16:25:13.339Z",
+        "commit_sha": "9cf493e05db97f634c217a84cf5a5c06cbad1fcb",
+        "commit_url": "https://github.com/qninying/relay/commit/9cf493e05db97f634c217a84cf5a5c06cbad1fcb",
+        "commit_at": "2026-10-22T16:25:00Z",
+        "points_awarded": 248,
+        "outstanding": []
       }
     },
     {
@@ -612,19 +608,15 @@
       "notes": "summarizeJob.ts enforces REQ-016 by order: fetch the item's source (no source, no summary: the summarizer is never called), archive the exact source text by SHA-256 (sourceArchive.ts, Redis, content-addressed, 30-day TTL, tamper-checked on read), summarize from that text only, then check the summary with the existing grounding guardrail (guardrails/groundingGuardrail.ts, its first real caller). A summary that fails (low overlap, a number not in the source, empty) is never returned: it goes to the STORY-007 review queue as ungrounded_summary with its violations and source reference. Criterion 1: summarizer called with exactly the source text; grounded summaries returned with the source reference; ungrounded ones rejected and routed. Criterion 2: missing or blank source fails as source_missing, an unreachable or hanging source fails as source_unavailable after capped retries, summarizer never called in either case. Trust: summary_generated / summary_rejected_ungrounded / summary_failed logged with the job's correlation ID and the source's id, SHA-256 and length; verifySummary re-checks a summary against the archived source from the logged hash alone. Failure paths: source unavailable (above); summary generation fails (summarizer errors retried then summarizer_failed with the source reference; source can't be archived fails before summarizing rather than producing an unverifiable summary; review queue down falls back to the DLQ); logging unavailable: summary still completes and the result carries the source reference, dropped lines counted. Verified: 177/177 tests on 5 consecutive full-suite runs (12 new, against real Redis), guardrails 16/16, tsc --noEmit clean. Mutation checks: skipping the grounding check failed 4 tests, allowing a blank source failed 1. Demo (npx tsx src/runSummaries.ts): 1 grounded and re-verified from the archive, 1 rejected for an invented number, 1 rejected for drifting off the source, 1 failed for missing source. Limitations: the grounding guardrail is lexical (word overlap + numbers), so a summary that reuses the source's words but changes their meaning can pass; no real LLM summarizer or source fetcher is wired in (both injected).",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 119,
-        "outstanding": [
-          "Given a summary is generated, When source data is available, Then it is grounded in that data",
-          "Given a summary is generated, When source data is missing, Then the summary generation fails",
-          "Trust: Given a summary is generated, Then its source data is logged for verification"
-        ]
+        "verified_at": "2026-10-22T16:02:57.402Z",
+        "commit_sha": "4185a0f61eb1c2db85762fc43fc83245ff61f2d4",
+        "commit_url": "https://github.com/qninying/relay/commit/4185a0f61eb1c2db85762fc43fc83245ff61f2d4",
+        "commit_at": "2026-10-22T16:02:45Z",
+        "points_awarded": 181,
+        "outstanding": []
       }
     }
   ]
