@@ -109,6 +109,10 @@ describe.skipIf(!redisAvailable)("end-to-end: enqueue -> dequeue -> processJob (
     const dequeued = await queue.dequeueOne("consumer-e2e");
 
     expect(dequeued?.confidence).toBe(0.1);
-    expect(processJob(dequeued!, store)).toEqual({ status: "processed" });
+    // STORY-007 (REQ-010): a low-confidence job is never auto-resolved. Before
+    // STORY-007 this asserted "processed"; that was the behavior REQ-010 forbids.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(processJob(dequeued!, store)).toEqual({ status: "needs_review" });
+    expect(store.claim("idem-e2e-3")).toBe(true); // key left unclaimed for after review
   });
 });

@@ -12,12 +12,7 @@
 import type { Redis } from "ioredis";
 import { logJson } from "./logger.js";
 import type { Job } from "./processJob.js";
-
-// REQ-011's own wording is "low-confidence," not a specific number — 0.5 is a
-// placeholder threshold to satisfy this story's logging requirement. The real
-// tuned value is a product decision for whoever owns the classification
-// taxonomy (REQ-017, STORY-011), not decided here.
-const LOW_CONFIDENCE_THRESHOLD = 0.5;
+import { isLowConfidence, LOW_CONFIDENCE_THRESHOLD } from "./confidence.js";
 
 export class BacklogUnknownError extends Error {}
 
@@ -87,6 +82,18 @@ export class RedisStreamQueue {
     throw new BacklogUnknownError(`Consumer group ${this.groupName} does not exist on ${this.streamKey}`);
   }
 
+  // STORY-007: read entries without consuming them (XRANGE, oldest first),
+  // so an operator or the MCP server can see what's waiting for review
+  // without taking it off the queue.
+  async peek(count: number): Promise<Job[]> {
+    const entries = (await this.redis.xrange(this.streamKey, "-", "+", "COUNT", count)) as [string, string[]][];
+    return entries.map(([messageId, fields]) => {
+      const dataIndex = fields.indexOf("data");
+      if (dataIndex === -1) throw new Error(`Stream message ${messageId} has no "data" field`);
+      return JSON.parse(fields[dataIndex + 1]) as Job;
+    });
+  }
+
   // Returns null when there's nothing to read — not an error, just an empty
   // queue at this instant.
   async dequeueOne(consumerName: string): Promise<Job | null> {
@@ -116,12 +123,12 @@ export class RedisStreamQueue {
     }
     const job = JSON.parse(fields[dataIndex + 1]) as Job;
 
-    if (typeof job.confidence === "number" && job.confidence < LOW_CONFIDENCE_THRESHOLD) {
+    if (isLowConfidence(job)) {
       logJson("info", {
         event: "job_low_confidence",
         correlationId: job.correlationId,
         outcome: "skipped",
-        context: { jobId: job.id, confidence: job.confidence },
+        context: { jobId: job.id, confidence: job.confidence, threshold: LOW_CONFIDENCE_THRESHOLD },
       });
     }
 

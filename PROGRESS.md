@@ -107,3 +107,16 @@ Tracks implementation work on Relay, session by session.
   - Session: CC-20261022-3srn
   - What changed: `assets/command-center.js` `getMode()` now defaults to Real and only shows Sample when it was explicitly chosen, with localStorage access wrapped in try/catch. Ported from the same CoreOps fix (2026-10-05). Before this, a first-time visitor saw invented Sample states instead of the real story progress.
   - Verification: Ran the new `getMode()` under Node with four stubbed storage states: nothing saved gives real, saved sample gives sample, saved real gives real, storage throwing gives real. Not yet re-checked in a browser on the live Pages site, since that needs a push first.
+
+- [x] STORY-007: route low-confidence jobs to review queue
+  - Date: 2026-10-22
+  - Session: CC-20261022-3srn
+  - What changed: `confidence.ts` defines low confidence once (threshold 0.5, placeholder). `reviewQueue.ts` writes low-confidence jobs to a separate review stream with the original job preserved, retrying 3 times and then falling back to the DLQ tagged `review_queue_unavailable` (or throwing with no DLQ) so a job is never lost or resolved. `jobRouter.ts` sends low-confidence jobs to review and everything else to `processJob`, wired into the STORY-006 worker loop and worker processes. `processJob` itself now refuses to resolve a low-confidence job (returns `needs_review`, logs `job_not_auto_resolved`). `queue.ts` gains `peek()` (XRANGE). `runReviewRouting.ts` is a demo.
+  - Verification: `npx vitest run`: 109/109 on 10 consecutive full-suite runs; 9 new tests in `reviewQueue.test.ts` against real Redis (routing, logging with correlation IDs, threshold boundary, end to end through the worker loop, review-queue-down fallback to DLQ, no-DLQ throw, worker survives an unplaceable job, processJob guard). Mutation checks: disabling routing failed 4 tests, removing the guard failed 2, both reverted. `npx tsc --noEmit` clean. Demo `npx tsx src/runReviewRouting.ts`: 3 jobs below 0.5 landed in the review queue unresolved, 0.50 exactly was processed, DLQ 0.
+  - Notes: `endToEnd.test.ts` used to assert a low-confidence job came back `processed`, which is what REQ-010 forbids; it now expects `needs_review`. Not built: a reviewer workflow, and the MCP `relay://jobs/needs-review` resource still serves fixtures.
+
+- [x] STORY-006 follow-up: fix flaky autoscaler integration assertion
+  - Date: 2026-10-22
+  - Session: CC-20261022-3srn
+  - What changed: `autoscaler.integration.test.ts` no longer asserts that more than one worker processed jobs. Under full-suite load the warm worker could drain all 40 (~1ms) jobs before newly forked workers booted, failing about 1 in 5 runs. Replaced with a deterministic check that every scaled-up worker is registered as a consumer on the group (`XINFO CONSUMERS`). The STORY-006 note in `progress.json` that claimed "across more than one worker" was corrected to match.
+  - Verification: Reproduced the failure in a full-suite loop (`expected 1 to be greater than 1` at the removed line); the test alone passed 8/8. After the fix, 10/10 consecutive full-suite runs pass, 109/109 each.

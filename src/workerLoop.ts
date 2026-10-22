@@ -10,7 +10,7 @@
 // forever.
 
 import { logJson } from "./logger.js";
-import { processJob } from "./processJob.js";
+import { routeJob } from "./jobRouter.js";
 import type { IdempotencyStore } from "./idempotencyStore.js";
 import type { RedisStreamQueue } from "./queue.js";
 
@@ -20,6 +20,10 @@ export interface WorkerLoopOptions {
   // worker's whole lifetime traces back to the autoscale event that caused it.
   correlationId: string;
   signal: AbortSignal;
+  // STORY-007: where low-confidence jobs go instead of being processed, and
+  // the DLQ fallback if the review queue can't be written to.
+  reviewQueue?: RedisStreamQueue;
+  dlq?: RedisStreamQueue;
   idlePollMs?: number;
   errorBackoffMs?: number;
   maxConsecutiveErrors?: number;
@@ -82,7 +86,19 @@ export async function runWorkerLoop(
       continue;
     }
 
-    processJob(job, store);
+    try {
+      await routeJob(job, { store, reviewQueue: options.reviewQueue, reviewOptions: { dlq: options.dlq } });
+    } catch (error) {
+      // routeToReviewQueue already logged review_route_failed with the job's
+      // correlation ID; this records that the worker carried on past it.
+      logJson("error", {
+        event: "worker_job_unplaced",
+        correlationId: job.correlationId,
+        outcome: "failure",
+        errorClass: error instanceof Error ? error.constructor.name : "UnknownError",
+        context: { workerId, jobId: job.id },
+      });
+    }
     processed += 1;
   }
 

@@ -8,21 +8,22 @@
 import { logJson } from "./logger.js";
 import type { IdempotencyStore } from "./idempotencyStore.js";
 import type { MetricsCollector } from "./metrics.js";
+import { isLowConfidence } from "./confidence.js";
 
 export interface Job {
   id: string;
   correlationId: string;
   idempotencyKey: string;
   payload: unknown;
-  // Optional: set for classification jobs. STORY-002 logs low-confidence jobs
-  // (REQ-011) when this crosses LOW_CONFIDENCE_THRESHOLD in queue.ts; routing
-  // a low-confidence job to a review queue instead of the DLQ is REQ-010,
-  // STORY-007's job, not this one.
+  // Optional: set for classification jobs. Below LOW_CONFIDENCE_THRESHOLD
+  // (confidence.ts) the job is logged (REQ-011, STORY-002) and routed to the
+  // review queue instead of being resolved (REQ-010, STORY-007).
   confidence?: number;
 }
 
 export type ProcessResult =
   | { status: "processed" }
+  | { status: "needs_review" }
   | { status: "skipped_duplicate" }
   | { status: "failed"; errorClass: string };
 
@@ -36,6 +37,20 @@ export function processJob(job: Job, store: IdempotencyStore, metrics?: MetricsC
     correlationId: job.correlationId,
     context: { jobId: job.id },
   });
+
+  // STORY-007 (REQ-010): a low-confidence job is never auto-resolved, even
+  // if a caller hands it here directly instead of routing it through
+  // jobRouter.ts. Returned before claiming the idempotency key, so the job
+  // can still be resolved for real once a human has reviewed it.
+  if (isLowConfidence(job)) {
+    logJson("warn", {
+      event: "job_not_auto_resolved",
+      correlationId: job.correlationId,
+      outcome: "skipped",
+      context: { jobId: job.id, confidence: job.confidence, reason: "low_confidence_needs_review" },
+    });
+    return { status: "needs_review" };
+  }
 
   let claimed: boolean;
   try {

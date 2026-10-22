@@ -27,8 +27,8 @@ the same criteria out of `.colaberry/progress.json`, which Claude Code keeps in
 step (see the managed block in CLAUDE.md). Ticking something you have not
 actually met only misleads you.
 
-- [ ] Given a low-confidence job, When it is processed, Then it is routed to the review queue
-- [ ] Given a review queue, When a job is added, Then it is logged with a correlation ID
-- [ ] Trust: Low-confidence jobs are logged with correlation IDs
+- [x] Given a low-confidence job, When it is processed, Then it is routed to the review queue
+- [x] Given a review queue, When a job is added, Then it is logged with a correlation ID
+- [x] Trust: Low-confidence jobs are logged with correlation IDs
 
 When every box above is ticked, stop and show the demo.

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-007",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-10-22T15:40:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "systems",
+      "value": "Relay has three outcomes for a dequeued job: processed, routed to the review queue (low confidence), or dead-lettered (failed). The review queue is its own Redis stream, separate from the DLQ.",
+      "evidence": "src/jobRouter.ts, src/reviewQueue.ts, src/dlq.ts"
+    },
+    {
+      "dimension": "constraints",
+      "value": "The low-confidence threshold (0.5) is a placeholder defined once in confidence.ts; the real value is a product decision tied to the classification taxonomy (STORY-011).",
+      "evidence": "src/confidence.ts"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "If the review queue can't be written to after capped retries, the job falls back to the DLQ tagged review_queue_unavailable instead of being dropped or processed.",
+      "rationale": "the job has already been acked off the main stream, so failing to place it anywhere would lose it; the DLQ keeps it visible and triageable while still not resolving it.",
+      "evidence": "src/reviewQueue.ts"
+    },
+    {
+      "statement": "processJob refuses to resolve a low-confidence job on its own, in addition to the router sending it to review.",
+      "rationale": "defense in depth for the 'low-confidence job is auto-resolved' failure path: any caller that bypasses the router still cannot resolve one, and the idempotency key stays unclaimed so it can be resolved after review.",
+      "evidence": "src/processJob.ts"
+    },
+    {
+      "statement": "The existing end-to-end test that expected a low-confidence job to come back 'processed' was changed to expect needs_review.",
+      "rationale": "that expectation encoded exactly the behavior REQ-010 forbids; keeping it would have locked in the bug.",
+      "evidence": "src/endToEnd.test.ts"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "There is no reviewer workflow yet: entries wait in the review stream, but nothing lets a human approve, correct or reject them and resolve the job.",
+      "evidence": "src/reviewQueue.ts"
+    },
+    {
+      "statement": "The MCP server's relay://jobs/needs-review resource still returns fixture data rather than reading the real review stream.",
+      "evidence": "mcp-server/src/mcpServerFactory.ts"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/reviewQueue.test.ts" },
+    { "kind": "test", "ref": "src/endToEnd.test.ts" }
+  ],
+  "measurementEvents": []
+}

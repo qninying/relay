@@ -330,7 +330,7 @@
         "src/autoscaler.integration.test.ts",
         "src/workerLoop.test.ts"
       ],
-      "notes": "Autoscaler scales real worker OS processes (ProcessWorkerPool forks workerProcess.ts, each running the standing consumer loop STORY-002 deferred) on real queue depth - the Redis consumer group's lag via queue.getBacklog(), not XLEN. Scale-up is immediate (criterion 1); scale-down waits until the backlog has stayed low for scaleDownAfter evaluations so a brief lull doesn't kill workers (criterion 2). Every scaling evaluation gets a fresh correlation ID that is logged on autoscale_up/autoscale_down/autoscale_down_deferred and passed to each spawned worker, which logs worker_started/worker_stopped with it (trust). Failure paths: unreadable or hung backlog read holds the current count and logs (never guesses 0); pool throw logs autoscale_failed and retries next evaluation; partial spawn logs autoscale_shortfall; a worker ignoring SIGTERM is force-killed after a grace period; a worker that dies on its own is logged and replaced on the next evaluation; a throwing logger never blocks a scaling decision and is counted in status().logFailures. Verified: integration test against real Redis 7.4 and real forked processes - 40 jobs enqueued, scaled 1 -> 4 separate live PIDs, all 40 processed exactly once across more than one worker, scaled back to 1 with the stopped PIDs confirmed dead and each having exited gracefully. Mutation check: forcing desiredWorkerCount to always 1 failed 12 tests. 100/100 tests passing three runs in a row, tsc --noEmit clean. Demo (npx tsx runAutoscaler.ts --quiet): 120-job burst scaled 1 -> 6, drained, deferred twice, scaled 6 -> 1. Limitation: each worker's idempotency store is in-process; correct today because a consumer group delivers each entry to one consumer, but cross-process duplicate protection on redelivery needs a shared store (STORY-008). Autoscaler runs on one host; scaling across machines is STORY-010's deploy concern.",
+      "notes": "Autoscaler scales real worker OS processes (ProcessWorkerPool forks workerProcess.ts, each running the standing consumer loop STORY-002 deferred) on real queue depth - the Redis consumer group's lag via queue.getBacklog(), not XLEN. Scale-up is immediate (criterion 1); scale-down waits until the backlog has stayed low for scaleDownAfter evaluations so a brief lull doesn't kill workers (criterion 2). Every scaling evaluation gets a fresh correlation ID that is logged on autoscale_up/autoscale_down/autoscale_down_deferred and passed to each spawned worker, which logs worker_started/worker_stopped with it (trust). Failure paths: unreadable or hung backlog read holds the current count and logs (never guesses 0); pool throw logs autoscale_failed and retries next evaluation; partial spawn logs autoscale_shortfall; a worker ignoring SIGTERM is force-killed after a grace period; a worker that dies on its own is logged and replaced on the next evaluation; a throwing logger never blocks a scaling decision and is counted in status().logFailures. Verified: integration test against real Redis 7.4 and real forked processes - 40 jobs enqueued, scaled 1 -> 4 separate live PIDs, all 40 processed exactly once, every scaled-up worker confirmed as a live consumer on the group via XINFO CONSUMERS, scaled back to 1 with the stopped PIDs confirmed dead and each having exited gracefully. Mutation check: forcing desiredWorkerCount to always 1 failed 12 tests. 100/100 tests passing three runs in a row, tsc --noEmit clean. Demo (npx tsx runAutoscaler.ts --quiet): 120-job burst scaled 1 -> 6, drained, deferred twice, scaled 6 -> 1. Limitation: each worker's idempotency store is in-process; correct today because a consumer group delivers each entry to one consumer, but cross-process duplicate protection on redelivery needs a shared store (STORY-008). Autoscaler runs on one host; scaling across machines is STORY-010's deploy concern. Follow-up 2026-10-22: removed a timing-dependent 'more than one worker processed jobs' assertion that flaked about 1 in 5 full-suite runs (the warm worker can drain ~1ms jobs before new ones boot), replaced with the XINFO CONSUMERS check; 10/10 full-suite runs pass.",
       "updated_at": null,
       "verification": {
         "state": "verified",
@@ -351,20 +351,33 @@
       "criteria": [
         {
           "text": "Given a low-confidence job, When it is processed, Then it is routed to the review queue",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a review queue, When a job is added, Then it is logged with a correlation ID",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Low-confidence jobs are logged with correlation IDs",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "src/confidence.ts",
+        "src/reviewQueue.ts",
+        "src/reviewQueue.test.ts",
+        "src/jobRouter.ts",
+        "src/processJob.ts",
+        "src/queue.ts",
+        "src/workerLoop.ts",
+        "src/workerProcess.ts",
+        "src/endToEnd.test.ts",
+        "src/runReviewRouting.ts"
+      ],
+      "tests_added": [
+        "src/reviewQueue.test.ts"
+      ],
+      "notes": "Low-confidence jobs (confidence < LOW_CONFIDENCE_THRESHOLD, now defined once in confidence.ts) are routed by jobRouter.ts to a separate review stream instead of being processed, and never to the DLQ (REQ-010). The review entry preserves the original job whole plus reason, confidence, threshold and routedAt. Wired into the worker loop and worker processes from STORY-006 (review stream defaults to '<stream>:review'). Criterion 1: routed to the review queue, verified against real Redis via peek() (XRANGE). Criterion 2: job_routed_to_review logged with the job's correlation ID and the review message id. Trust: the low-confidence job's own trail is job_low_confidence, job_dequeued, job_routed_to_review, all under one correlation ID. Failure paths: job does not route (review stream unwritable) retries 3 times with backoff, then falls back to the DLQ tagged review_queue_unavailable so it is neither lost nor resolved, and throws ReviewRouteFailedError if no DLQ is configured; the worker loop logs worker_job_unplaced and keeps running. Entry not logged: covered by the logging assertions. Auto-resolved: processJob itself now refuses low-confidence jobs (returns needs_review, logs job_not_auto_resolved, leaves the idempotency key unclaimed), so no other caller can resolve one either. Contract change: endToEnd.test.ts previously asserted a low-confidence job came back 'processed'; that is the behavior REQ-010 forbids, so it now expects needs_review. Verified: 109/109 tests, 10 consecutive full-suite runs, tsc --noEmit clean. Mutation checks: disabling routing failed 4 tests, removing the processJob guard failed 2. Demo (npx tsx src/runReviewRouting.ts): 6 jobs, the 3 below 0.5 in the review queue unresolved, 0.50 exactly processed, DLQ 0. Not built: a reviewer workflow to resolve review entries, and the MCP server's relay://jobs/needs-review resource still serves fixture data rather than reading this stream.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",

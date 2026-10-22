@@ -48,10 +48,17 @@ async function main(): Promise<number> {
   // redelivery needs a shared (Redis-backed) store; that's STORY-008's retry
   // work, named as a limitation rather than built here.
   const queue = new RedisStreamQueue(redis, streamKey, groupName);
+  // STORY-007: review and DLQ streams default to siblings of the main stream.
+  // Group names only matter to whoever consumes them (a reviewer, DLQ
+  // triage); workers only write to these.
+  const reviewQueue = new RedisStreamQueue(redis, process.env.RELAY_REVIEW_STREAM_KEY ?? `${streamKey}:review`, "relay-review");
+  const dlq = new RedisStreamQueue(redis, process.env.RELAY_DLQ_STREAM_KEY ?? `${streamKey}:dlq`, "relay-dlq");
   const result = await runWorkerLoop(queue, new InMemoryIdempotencyStore(), {
     workerId,
     correlationId,
     signal: controller.signal,
+    reviewQueue,
+    dlq,
   });
 
   logJson(result.stoppedBecause === "signal" ? "info" : "error", {

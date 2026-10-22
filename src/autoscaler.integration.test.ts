@@ -108,6 +108,18 @@ describe.skipIf(!redisAvailable)("autoscaling real worker processes (integration
     expect(new Set(livePids).size).toBe(up.workersAfter);
     for (const pid of livePids) expect(isAlive(pid)).toBe(true);
 
+    // Every scaled-up worker is a live consumer on the group (it has called
+    // XREADGROUP). Checked via Redis itself rather than by which worker
+    // happened to process jobs: these jobs take ~1ms, so under load the warm
+    // worker can drain all 40 before the new ones finish booting. That was a
+    // real flake (1 in ~5 full-suite runs), not a scaling bug.
+    const consumerNames = async () =>
+      ((await redis.xinfo("CONSUMERS", streamKey, groupName)) as unknown[][]).map((c) => String(c[c.indexOf("name") + 1]));
+    await waitFor(async () => {
+      const names = await consumerNames();
+      return pool.workerIds().every((id) => names.includes(id));
+    }, 20_000);
+
     // Workers drain the backlog.
     await waitFor(async () => (await queue.getBacklog()) === 0, 20_000);
     await waitFor(() => workerLines.filter((w) => w.line.event === "job_processed").length === 40, 10_000);
@@ -122,8 +134,6 @@ describe.skipIf(!redisAvailable)("autoscaling real worker processes (integration
     const processedIds = workerLines.filter((w) => w.line.event === "job_processed").map((w) => (w.line.context as { jobId: string }).jobId);
     expect(new Set(processedIds).size).toBe(40);
     expect(processedIds).toHaveLength(40);
-    // And more than one worker actually did the work.
-    expect(new Set(workerLines.filter((w) => w.line.event === "job_processed").map((w) => w.workerId)).size).toBeGreaterThan(1);
 
     // Trust: scale events carry the correlation ID, and each spawned worker
     // logged worker_started with the ID of the decision that created it.
