@@ -9,9 +9,17 @@
 //
 // Counts are derived from the stored outcomes, never kept as separate
 // counters, so they can't drift from the items.
+//
+// REQ-012: every outcome is validated against the declared schema for its
+// status (guardrails/outputContractGuardrail.ts, the same check STORY-003
+// applies to external API output) before it is persisted. An off-contract
+// outcome (missing or unexpected fields, or text that trips the injection
+// check) is refused with OutputContractViolation and nothing is written.
 
 import type { Redis } from "ioredis";
 import type { Job } from "./processJob.js";
+import { checkOutputContractGuardrail, type JobOutputSchema } from "../guardrails/outputContractGuardrail.js";
+import { logJson } from "./logger.js";
 
 export type ItemStatus = "done" | "review" | "failed";
 
@@ -29,6 +37,30 @@ export interface BatchCounts {
   review: number;
   failed: number;
   recorded: number;
+}
+
+export const OUTCOME_SCHEMAS: Record<ItemStatus, JobOutputSchema> = {
+  done: { jobType: "batch_item_done", requiredFields: ["status", "label", "confidence", "taxonomyVersion", "at"], allowedFields: new Set(["status", "label", "confidence", "taxonomyVersion", "at"]) },
+  review: { jobType: "batch_item_review", requiredFields: ["status", "label", "confidence", "taxonomyVersion", "at"], allowedFields: new Set(["status", "label", "confidence", "taxonomyVersion", "at"]) },
+  failed: { jobType: "batch_item_failed", requiredFields: ["status", "reason", "at"], allowedFields: new Set(["status", "reason", "taxonomyVersion", "at"]) },
+};
+
+export class OutputContractViolation extends Error {
+  constructor(readonly violations: string[]) {
+    super(`Batch item outcome failed its output contract: ${violations.join(", ")}`);
+  }
+}
+
+// Schema check plus the type checks a field list can't express.
+export function checkOutcome(outcome: ItemOutcome): string[] {
+  const schema = OUTCOME_SCHEMAS[outcome.status];
+  if (!schema) return ["UNKNOWN_STATUS"];
+  const record = Object.fromEntries(Object.entries(outcome).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
+  const violations: string[] = [...checkOutputContractGuardrail(record, schema).violations];
+  if ("confidence" in record && (typeof record.confidence !== "number" || record.confidence < 0 || record.confidence > 1)) violations.push("BAD_CONFIDENCE");
+  if (typeof record.at !== "string" || Number.isNaN(Date.parse(record.at))) violations.push("BAD_TIMESTAMP");
+  for (const key of ["label", "reason", "taxonomyVersion"]) if (key in record && typeof record[key] !== "string") violations.push(`BAD_${key.toUpperCase()}`);
+  return violations;
 }
 
 const RECORD_ONCE = `
@@ -51,6 +83,17 @@ export class BatchResults {
   // already had one (a redelivery). reviewEntry is enqueued on reviewStream
   // only when the outcome is recorded.
   async record(batchId: string, jobId: string, outcome: ItemOutcome, review?: { stream: string; entry: Job }): Promise<boolean> {
+    const violations = checkOutcome(outcome);
+    if (violations.length) {
+      logJson("error", {
+        event: "output_validation_failed",
+        correlationId: review?.entry.correlationId ?? jobId,
+        outcome: "failure",
+        errorClass: "OutputContractViolation",
+        context: { batchId, jobId, status: outcome.status, violations },
+      });
+      throw new OutputContractViolation(violations);
+    }
     const result = await this.redis.eval(
       RECORD_ONCE,
       2,
