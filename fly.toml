@@ -1,0 +1,43 @@
+# STORY-010 (REQ-009): Relay's app on Fly.io. One machine runs the server,
+# the autoscaler and its worker processes (see src/server.ts). Redis is a
+# separate private app (deploy/redis/fly.toml), reached over Fly's private
+# IPv6 network. Deploy and rollback: docs/runbooks/DEPLOYMENT.md.
+#
+# Secrets are never in this file. REDIS_URL (with the Redis password) is set
+# with `fly secrets set`, see the runbook.
+app = "relay-qn"
+primary_region = "iad"
+
+[build]
+
+[env]
+  PORT = "8080"
+  # Fly's private network (*.internal) is IPv6-only.
+  REDIS_FAMILY = "6"
+  RELAY_MIN_WORKERS = "1"
+  # 3 workers + server fit in 512MB with room to spare (~72MB server,
+  # ~64MB per worker, measured in the production image).
+  RELAY_MAX_WORKERS = "3"
+  RELAY_JOBS_PER_WORKER = "25"
+  RELAY_SAMPLE_INTERVAL_MS = "60000"
+  RELAY_TARGET_SUCCESS_RATE = "0.9"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Always on: workers must keep draining the queue with nobody watching.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "15s"
+    method = "GET"
+    path = "/health"
+    protocol = "http"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

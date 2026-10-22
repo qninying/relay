@@ -1,0 +1,21 @@
+# STORY-010: Relay's Redis on Fly.io. Private only: there is no [http_service]
+# or [[services]] section, so it has no public address and is reachable only
+# from apps in the same Fly organization at relay-qn-redis.internal:6379.
+#
+# Data (the job queue, DLQ, review queue, retry policy, idempotency keys and
+# monitoring history) lives on the volume with append-only persistence, so a
+# restart or redeploy loses nothing. REDIS_PASSWORD is a secret, set with
+# `fly secrets set`; start-redis.sh refuses to start without it.
+app = "relay-qn-redis"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[mounts]
+  source = "relay_redis_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

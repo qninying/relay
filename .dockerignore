@@ -1,0 +1,20 @@
+# Keeps the build context small and keeps anything gitignored (secrets,
+# local data) out of every image layer. Only src/, guardrails/*.ts and
+# taxonomies/ are needed (see Dockerfile).
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.github
+.claude
+.colaberry
+docs
+assets
+mcp-server
+*.html
+!src/dashboard.html
+*.md
+.env
+.env.*
+.DS_Store

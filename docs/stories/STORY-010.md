@@ -29,8 +29,8 @@ the same criteria out of `.colaberry/progress.json`, which Claude Code keeps in
 step (see the managed block in CLAUDE.md). Ticking something you have not
 actually met only misleads you.
 
-- [ ] Given the system is deployed, When it is running, Then job success rate and latency are tracked
-- [ ] Given the system is deployed, When a status request is made, Then a plain-language status view is provided
-- [ ] Trust: Given the system is running, Then monitoring data is logged for auditability
+- [x] Given the system is deployed, When it is running, Then job success rate and latency are tracked
+- [x] Given the system is deployed, When a status request is made, Then a plain-language status view is provided
+- [x] Trust: Given the system is running, Then monitoring data is logged for auditability
 
 When every box above is ticked, stop and show the demo.

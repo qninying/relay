@@ -496,20 +496,46 @@
       "criteria": [
         {
           "text": "Given the system is deployed, When it is running, Then job success rate and latency are tracked",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given the system is deployed, When a status request is made, Then a plain-language status view is provided",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Given the system is running, Then monitoring data is logged for auditability",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "src/server.ts",
+        "src/statusServer.ts",
+        "src/statusServer.test.ts",
+        "src/statusView.ts",
+        "src/statusView.test.ts",
+        "src/monitoringSampler.ts",
+        "src/jobOutcomeTracker.ts",
+        "src/redisConnection.ts",
+        "src/streams.ts",
+        "src/submitJobs.ts",
+        "src/workerProcess.ts",
+        "src/package.json",
+        "src/tsconfig.build.json",
+        "Dockerfile",
+        ".dockerignore",
+        "fly.toml",
+        "deploy/redis/fly.toml",
+        "deploy/redis/Dockerfile",
+        "deploy/redis/start-redis.sh",
+        "scripts/setup-fly.sh",
+        "scripts/deploy.sh",
+        "docs/runbooks/DEPLOYMENT.md"
+      ],
+      "tests_added": [
+        "src/statusView.test.ts",
+        "src/statusServer.test.ts"
+      ],
+      "notes": "Relay is deployed to Fly.io (REQ-009): app relay-qn (https://relay-qn.fly.dev, one 512MB machine running src/server.ts: the autoscaler with 1-3 real worker processes, monitoring, and a read-only status server) and relay-qn-redis (private Redis 7.4, password from a Fly secret, append-only persistence on a 1GB volume, noeviction, IPv6 private network only). Estimated ~$6-8/month. Criterion 1: monitoring tracks success rate and p95 latency (end to end, from the stream id's enqueue time to job_processed in the workers' own logs) plus processed/failed counts, DLQ additions and depth, review routing and depth, queue depth and workers, sampled every 60s into a capped Redis stream (~7 days) readable at /metrics/history (REQ-014). Circuit breaker trips are recorded as null: the worker path makes no external calls, so nothing was measured. Criterion 2: /status is a plain-language page for analysts (REQ-013), /status.json the same with raw numbers. Trust: every sample is logged as metrics_sample with its own correlation ID, and the stored sample carries the same id. Failure paths: deployment fails (scripts/deploy.sh gates on type-check and full test suite, deploys one machine, smoke-checks the public URL, rolls back to the previous image on failure); monitoring service unavailable (sampler logs monitoring_sample_failed; status page says the queue can't be reached and shows no numbers, HTTP 503, while /health stays 200 so Fly doesn't restart-loop); status view not updated (samples older than 3 intervals are labelled out of date with their age). Verified in production: 200 jobs submitted via fly ssh, 192 processed at 100% success (p95 674ms) and 8 low-confidence routed to review, shown on the live status page; a 3000-job burst scaled workers 1 to 3 and back to 1 with autoscale events logged by correlation ID; second deploy.sh run passed tests, deploy and smoke check (ready=200 state=ok) with the previous image recorded for rollback. Locally: 200/200 tests on 3 runs (16 new), tsc clean, Redis-paused drill showed down/503 and self-recovery, Docker image and Redis image tested (unauthenticated clients refused, noeviction, password redacted in logs). Mutation checks: removing the stale check failed 1 test, removing the history write failed 2. Found during deploy: first smoke check falsely failed because this machine's DNS had cached 'not found' for the hostname from a pre-creation check; deploy.sh now resolves via public DNS and pins the IP. setup-fly.sh's secret check parsed Fly's table output and would have rotated the password on re-run; now uses JSON. Limitations: no alerting; rollback has been exercised only in its 'no previous image' branch, not a full bad-deploy drill; single Redis machine, no replica; no CI/CD (deploys from a laptop, still test-gated).",
       "updated_at": null,
       "verification": {
         "state": "in_progress",

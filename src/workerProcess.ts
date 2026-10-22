@@ -9,7 +9,7 @@
 // maxConsecutiveErrors in a row); the pool logs that as an unexpected exit
 // and the autoscaler's next evaluation replaces it.
 
-import { Redis } from "ioredis";
+import { redisFromEnv } from "./redisConnection.js";
 import { logJson } from "./logger.js";
 import { InMemoryIdempotencyStore, RedisIdempotencyStore } from "./idempotencyStore.js";
 import { RedisStreamQueue } from "./queue.js";
@@ -35,15 +35,10 @@ async function main(): Promise<number> {
   const streamKey = requireEnv("RELAY_STREAM_KEY");
   const groupName = requireEnv("RELAY_GROUP");
 
-  const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
-    connectTimeout: 2000,
-    commandTimeout: 2000,
-    maxRetriesPerRequest: 2,
-  });
-  // Without a listener ioredis prints its own unstructured console.error on
-  // every reconnect attempt. Failures still surface: the loop's dequeue call
+  // STORY-010: same connection settings as the server (IPv6 on Fly, explicit
+  // timeouts). A failing command still surfaces: the loop's dequeue call
   // rejects and logs worker_dequeue_failed with the correlation ID.
-  redis.on("error", () => {});
+  const redis = redisFromEnv();
 
   const controller = new AbortController();
   process.once("SIGTERM", () => controller.abort());

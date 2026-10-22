@@ -22,7 +22,20 @@ agent directly, alongside a dashboard for human operators.
 
 ## Status
 
-This repository is freshly scaffolded. Architecture, stories, and the
-implementation itself land in subsequent work — see
-[`BuildIdeaPrompt.txt`](BuildIdeaPrompt.txt) for the design brief this build
-starts from.
+All 13 planned stories are built. Relay runs in production on Fly.io:
+
+- **Live status (plain language, for analysts):** https://relay-qn.fly.dev/status
+- **Operator SLO dashboard:** https://relay-qn.fly.dev/dashboard
+- **Metrics over time (JSON):** https://relay-qn.fly.dev/metrics/history?hours=24
+- **Command Center (plan and story progress):** https://qninying.github.io/relay/
+
+Runbooks: [deployment](docs/runbooks/DEPLOYMENT.md),
+[DLQ triage](docs/runbooks/DLQ_TRIAGE.md),
+[chaos drill](docs/runbooks/CHAOS_DRILL.md).
+
+Run the tests locally (Redis in Docker):
+
+```bash
+docker compose up -d redis
+cd src && npm ci && npx vitest run
+```
