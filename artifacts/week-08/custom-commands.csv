@@ -1,0 +1,9 @@
+Command,Purpose,Parameters,Returns,Example Usage
+runGuardrailTests,Runs the guardrails/ test suite (checkRemediationGuardrail + AuditLog) to prove human-approval and audit-logging behavior actually works.,none,"{ ok, summary, output }",const result = await runGuardrailTests(); if (!result.ok) console.error(result.summary);
+runMcpServerTests,"Runs the mcp-server/ test suite (DMV reader, reliability wrapper, read-only guard).",none,"{ ok, summary, output }",const result = await runMcpServerTests();
+typeCheckAll,Type-checks both TypeScript packages (guardrails/ and mcp-server/) with tsc --noEmit.,none,"{ ok, results: [{ package, ok, output }] }","const { ok, results } = await typeCheckAll(); results.forEach(r => console.log(r.package, r.ok));"
+checkStoryStatus,Reads .colaberry/progress.json and reports one story's verification status and per-criterion pass/fail.,"storyId (string, e.g. ""STORY-001"")","{ id, found, state, criteria }",const status = checkStoryStatus('STORY-002'); console.log(status.state);
+listUnverifiedStories,"Lists every story in .colaberry/plan.json whose verification.state is not ""verified"" yet.",none,"Array<{ id, title, state }>","const pending = listUnverifiedStories(); pending.forEach(s => console.log(s.id, s.state));"
+runGuardrailDemo,"Runs guardrails/demoUnsafeAction.ts, showing a valid, evidence-linked remediation still blocked for lack of human approval.",none,"{ ok, output }",const demo = await runGuardrailDemo(); console.log(demo.output);
+startCommandCenter,"Starts the Command Center dashboard as a background static file server, without blocking the terminal.","port (number, default 8000)","{ pid, url }","const { pid, url } = startCommandCenter(); console.log(url, pid);"
+gitStatusSummary,"Reports current git status (uncommitted files) and the last commit, as a pre-commit sanity check.",none,"{ changedFiles, lastCommit }",const status = gitStatusSummary(); console.log(status.changedFiles);

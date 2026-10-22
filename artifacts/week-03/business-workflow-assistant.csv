@@ -1,0 +1,5 @@
+requirement,implementation,file,function
+Authentication,"Loads the API key from the environment via python-dotenv and creates an authenticated Anthropic() client; the key itself never appears in the source code",business-workflow-assistant.py,get_client()
+Multi-turn conversation,"Maintains a growing conversation history list across the intake chat, resending the full history each turn so Claude has memory of everything the customer said previously",business-workflow-assistant.py,chat_loop()
+Structured output,"Constrains the final response to a fixed JSON schema (category, priority, customer_sentiment, needs_human_escalation, suggested_response) via output_config.format, guaranteeing a parseable, predictable ticket record",business-workflow-assistant.py,"generate_ticket(), TICKET_SCHEMA"
+End-to-end workflow,"Runs a live customer support intake conversation, then automatically converts the full transcript into a structured, ready-to-use support ticket with a drafted reply",business-workflow-assistant.py,main()

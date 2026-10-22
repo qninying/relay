@@ -1,0 +1,23 @@
+Section,Topic,Plain-Language Explanation,Example / Analogy
+Overview,What this document is,"Explains how the company organizes and manages its collection of AI prompts, covering naming, versioning, metadata, and quality checks.","Like a well-run cookbook for a restaurant chain: every recipe needs a clear name, a version number, a label, and a taste test before it goes on the menu."
+Naming Conventions,Why it matters,Random prompt names make it impossible to find the right one and lead to people accidentally using outdated or wrong versions.,Names like 'final_prompt_v2_USE_THIS' or 'chatbot copy new' cause confusion.
+Naming Conventions,How it works,"Every name has three parts in order: (1) the team or business area that owns it, (2) what the prompt does, (3) which version it is.","support.ticket-triage-v2.3 = Support team, triages tickets, version 2.3."
+Naming Conventions,Simple rules,"Use lowercase words separated by dashes or dots, no spaces or random capitalization. Keep the description short and obvious. Never reuse a name for a different purpose, even after retirement.",
+Versioning,Why it matters,"Prompts get improved over time. Without version numbers, nobody can tell which edition they are looking at, and there is no way to undo a change that causes problems.",
+Versioning,How it works,"Each version has two numbers, like 2.3. The first number changes for behavior changes people need to know about. The second number changes for small tweaks like fixing a typo.",Like a phone's operating system: iOS 16 to 17 is a big update you should notice; 17.1 to 17.2 is a quiet bug fix.
+Versioning,Day-to-day rules,"Live products always point to a specific, tested version, never 'whatever is newest.' Old versions are kept on record, never deleted. Every version change comes with a one-line note explaining what changed and why.",
+Metadata Requirements,Why it matters,"Metadata is the information about a prompt, not the prompt's instructions themselves. Without it, a prompt is a mystery box useful only to the person who wrote it.",
+Metadata Requirements,Purpose,"One or two plain sentences: what does this prompt do, and for whom?",
+Metadata Requirements,Owner,The person or team responsible if something goes wrong or a question comes up.,
+Metadata Requirements,Status,"Whether the prompt is a draft, being tested, live in production, or retired.",
+Metadata Requirements,Where it's used,"Which product, tool, or team relies on this prompt.",
+Metadata Requirements,What it should never do,Any hard boundaries the prompt must respect.,Never promises a refund; never gives medical advice.
+Metadata Requirements,Known weaknesses,"Any situations where the prompt does not perform well, stated honestly up front.",
+Metadata Requirements,Last reviewed,The date someone last checked that the prompt is still accurate and safe.,
+Metadata Requirements,Simple rule,"If any required field is missing, the prompt is not considered finished, no matter how good the writing is.",
+Quality Gates,Checkpoint 1 - Correctness,"The prompt is tested against realistic examples, and a person checks that the answers are actually right, not just that they sound right.",
+Quality Gates,Checkpoint 2 - Handles the unexpected,"The prompt is deliberately tested with messy, incomplete, or tricky input, including attempts to manipulate it into misbehaving. It should respond safely and predictably.",
+Quality Gates,Checkpoint 3 - Stays consistent,"The same question asked the same way should get a similarly good answer every time, not a great answer once and a strange one the next.",
+Quality Gates,Checkpoint 4 - Second-person review,"No prompt enters the library based on the author's word alone. Someone who did not write it checks it against naming, versioning, metadata, and the checkpoints above, then signs off.",
+Quality Gates,Library-ready pass/fail rule,"A prompt is library-ready only when it has a proper name, a version number with a change note, all required metadata filled in honestly, and it has passed all four quality checkpoints with a second person's sign-off. Missing any one of these keeps it labeled a draft.",
+Summary,Purpose of the structure,"Anyone in the company, technical or not, can look at a prompt in the library and know what it does, whether it is safe to rely on, who to ask about it, and whether it is ready for real use.",

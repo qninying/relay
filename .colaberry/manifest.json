@@ -7,6 +7,78 @@
   "truth_revision": 1,
   "files": [
     {
+      "path": ".colaberry/plan.json",
+      "sha256": "c35889d084359d8bc79177e1877971383d4b527dc57604089565869f7b1d5ace"
+    },
+    {
+      "path": ".colaberry/profile.json",
+      "sha256": "2768bbc0a0bb0f2a6335f706d951df7194e10c525393c6c3df95b6e6e51d007c"
+    },
+    {
+      "path": ".colaberry/progress.json",
+      "sha256": "caca434ae42175cbf3c6b32d03273a3c4b7e316601254ed55d11e9c48fbac5a6"
+    },
+    {
+      "path": "CLAUDE.md",
+      "sha256": "2d3d12a944cc505ceb6b91596db26a39d0d3502a7bb0aa505ec5092eb6a798e5"
+    },
+    {
+      "path": "artifacts/INDEX.md",
+      "sha256": "cdae17c436110b78008a08c53888f770a12ac220b29f0ef508d133bb4d9e7f5e"
+    },
+    {
+      "path": "artifacts/week-01/workflow-diagram.pdf",
+      "sha256": "c75d2eed5ec43974327b95da4137a821dfdd13c80161e432e92882ff66bfc034"
+    },
+    {
+      "path": "artifacts/week-02/skill-sharing-guide.docx",
+      "sha256": "2bae0308f01e0a893aee2e0e0fad324f9b418762ab654242a93d58ba2e7deded"
+    },
+    {
+      "path": "artifacts/week-03/business-workflow-assistant.csv",
+      "sha256": "270dbd48ac788638105f94eed7e674e4c80f2b7947c0cc5debf42c3044ab2bf6"
+    },
+    {
+      "path": "artifacts/week-04/enterprise-prompt-library-structure.csv",
+      "sha256": "c385f1d05d633dad22c58fd14bf60a00a9ccd330d3d3a5bb831a35b84b0f2858"
+    },
+    {
+      "path": "artifacts/week-05/mcp-server-configuration.csv",
+      "sha256": "141a16f0e9d18942b95bc7fdd9bfde87ac7b20489a7c88dfe2f33e9f87d515e9"
+    },
+    {
+      "path": "artifacts/week-06/progress-log-notification-framework.docx",
+      "sha256": "2c2a3bb0edee2f8ec1a8c8dc41233fcd1e2d0161ea396ebf3cdddf5c46396ca5"
+    },
+    {
+      "path": "artifacts/week-07/agent-role-description-document.pdf",
+      "sha256": "dc125e4e56d3d6255e85430d01e6063ba8bf407b4099eedb5ced911a2dccbff5"
+    },
+    {
+      "path": "artifacts/week-08/custom-commands.csv",
+      "sha256": "ff0c5bd53d4329a72b3aceddd24e5e8a0331c8e2f62aa464e2809de7f94e639c"
+    },
+    {
+      "path": "artifacts/week-09/reliability-layer-design.csv",
+      "sha256": "9622a1275acd74bbbcbe834d01b5b27a0477402e734709afe9161781334d8ff2"
+    },
+    {
+      "path": "artifacts/week-10/hitl-escalation-path.csv",
+      "sha256": "edb87e203e3f33dd1d55f59f906aabd1610e04aa6b0be424f97846eaf33184ad"
+    },
+    {
+      "path": "artifacts/week-11/7-layer-architecture-mapping.md",
+      "sha256": "91922bf525b406cc89f0d93ad57cc59619e1681b49b37562c054ac1833a7f405"
+    },
+    {
+      "path": "artifacts/week-12/coreops-program-inventory.csv",
+      "sha256": "1f27fb8e057bb5315544d7a80b672850484033aae67c6600aca4e72f75552cc3"
+    },
+    {
+      "path": "docs/DATA_CONTRACT.md",
+      "sha256": "d56e89edcfe36725945d961cf3479b646507d1fa855bba0dcdfff3f8f8a658b0"
+    },
+    {
       "path": "docs/REQUIREMENTS.md",
       "sha256": "26443cb5a4d2c6926d9af9bc5d32c89bcbcfa33b018ca50f948ba9d388e822a5"
     },
@@ -19,12 +91,8 @@
       "sha256": "200d3ddc79329d1442c9e76c411ce03fa960eb54dd42743e5430ba99b0c24183"
     },
     {
-      "path": "docs/DATA_CONTRACT.md",
-      "sha256": "d56e89edcfe36725945d961cf3479b646507d1fa855bba0dcdfff3f8f8a658b0"
-    },
-    {
-      "path": "CLAUDE.md",
-      "sha256": "2d3d12a944cc505ceb6b91596db26a39d0d3502a7bb0aa505ec5092eb6a798e5"
+      "path": "docs/stories/STORY-000.md",
+      "sha256": "3ca5642762113a908a46d3f49f6d0b59dbee04f845ec6b0000c3b0824160a28b"
     },
     {
       "path": "docs/stories/STORY-001.md",
@@ -73,22 +141,6 @@
     {
       "path": "docs/stories/STORY-012.md",
       "sha256": "13a576c9ae5ef8e878d045d765cee7ed6ab789729ff98230d7eab74cf104001e"
-    },
-    {
-      "path": "docs/stories/STORY-000.md",
-      "sha256": "3ca5642762113a908a46d3f49f6d0b59dbee04f845ec6b0000c3b0824160a28b"
-    },
-    {
-      "path": ".colaberry/plan.json",
-      "sha256": "c35889d084359d8bc79177e1877971383d4b527dc57604089565869f7b1d5ace"
-    },
-    {
-      "path": ".colaberry/progress.json",
-      "sha256": "caca434ae42175cbf3c6b32d03273a3c4b7e316601254ed55d11e9c48fbac5a6"
-    },
-    {
-      "path": ".colaberry/profile.json",
-      "sha256": "2768bbc0a0bb0f2a6335f706d951df7194e10c525393c6c3df95b6e6e51d007c"
     }
   ]
 }
