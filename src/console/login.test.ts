@@ -9,6 +9,8 @@ import type { AddressInfo } from "node:net";
 import { OperatorStore } from "./auth/operators.js";
 import { SessionStore } from "./auth/sessions.js";
 import { LoginLimiter } from "./auth/loginLimiter.js";
+import { AuditLog } from "./audit.js";
+import { ActionRunner } from "./actions.js";
 import { hashPassword } from "./auth/password.js";
 import { generateTotpSecret, stepAt, totpCodeForStep } from "./auth/totp.js";
 import { createConsoleHandler, SESSION_COOKIE, type ConsoleDeps } from "./routes.js";
@@ -35,7 +37,10 @@ const pw = "a-strong-test-pw";
 const NOW = 1_800_000_000_000;
 
 function stores(r: Redis) {
+  const audit = new AuditLog(r, `${P}audit`);
   return {
+    audit,
+    actions: new ActionRunner(r, audit, false, `${P}idem:`),
     operators: new OperatorStore(r, `${P}op:`),
     sessions: new SessionStore(r, `${P}sess:`),
     limiter: new LoginLimiter(r, { prefix: `${P}fail:`, windowSeconds: 2 }),
@@ -209,7 +214,9 @@ describe.skipIf(!redisAvailable)("console sign-in (integration, real Redis, over
     expect(keys.some((k) => k.includes(id))).toBe(false);
 
     const cookie = { cookie: `${SESSION_COOKIE}=${id}` };
-    const logout = await fetch(`${app.url}/console/logout`, { ...form({}), headers: { ...form({}).headers, ...cookie } });
+    const home = await (await fetch(`${app.url}/console`, { headers: cookie })).text();
+    const csrf = home.match(/name="csrf" value="([^"]+)"/)![1];
+    const logout = await fetch(`${app.url}/console/logout`, { ...form({ csrf }), headers: { ...form({}).headers, ...cookie, origin: app.url } });
     expect(logout.status).toBe(303);
     expect(logout.headers.get("set-cookie")).toContain("Max-Age=0");
     expect((await fetch(`${app.url}/console`, { headers: cookie, redirect: "manual" })).status).toBe(303);

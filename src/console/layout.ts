@@ -4,6 +4,7 @@
 // dynamic text goes through esc().
 
 import type { Session } from "./auth/sessions.js";
+import { newIdempotencyKey } from "./actions.js";
 
 export function esc(text: string): string {
   return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -29,6 +30,9 @@ const STYLE = `
   :focus-visible { outline:3px solid var(--focus); outline-offset:2px; }
   .error { color:var(--danger); background:color-mix(in srgb, var(--danger) 10%, transparent); border-radius:8px; padding:10px 12px; margin:0 0 8px; }
   .muted { color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
   form.inline { display:inline; margin:0; }
 `;
 
@@ -59,4 +63,10 @@ ${body}
 </body>
 </html>
 `;
+}
+
+// Hidden fields every action form needs (STORY-102): the session's CSRF
+// token and a fresh one-time idempotency key for this rendering of the form.
+export function actionFields(session: Session): string {
+  return `<input type="hidden" name="csrf" value="${esc(session.csrfToken)}"><input type="hidden" name="idem" value="${newIdempotencyKey()}">`;
 }

@@ -4,8 +4,11 @@
 //
 //   GET  /console/login   sign-in form
 //   POST /console/login   password + authenticator code -> session cookie
-//   POST /console/logout  ends the session
+//   POST /console/logout  ends the session (same-origin + CSRF checked)
 //   GET  /console         protected home
+//   GET  /console/audit   audit log (engineers: everyone; analysts: their own)
+//   POST <registered>     actions from later stories, all through
+//                         ActionRunner.perform (STORY-102)
 //   anything else under /console requires a valid session: pages redirect
 //   to the sign-in form, /console/api/* answers 401 JSON.
 //
@@ -28,6 +31,9 @@ import type { OperatorStore } from "./auth/operators.js";
 import type { Session, SessionStore } from "./auth/sessions.js";
 import { SESSION_IDLE_SECONDS } from "./auth/sessions.js";
 import type { LoginLimiter } from "./auth/loginLimiter.js";
+import type { Role } from "./auth/operators.js";
+import type { AuditLog } from "./audit.js";
+import { checkIntegrity, type ActionResult, type ActionRunner } from "./actions.js";
 import { esc, page } from "./layout.js";
 
 export const SESSION_COOKIE = "relay_session";
@@ -36,7 +42,19 @@ const MAX_BODY_BYTES = 8 * 1024;
 const FAIL = { unknownUser: "unknown_user", disabled: "disabled", wrongPw: "bad_password", badCode: "bad_or_reused_code" } as const;
 const GENERIC_FAILURE = "That username, password or code isn't right. Check them and try again.";
 
+// A state-changing console action, registered by a later story (batch
+// submit, review decision, ...). Always run through ActionRunner.perform.
+export interface PostRoute {
+  action: string;
+  roles: Role[];
+  target: (form: URLSearchParams) => string;
+  run: (session: Session, form: URLSearchParams) => Promise<ActionResult>;
+}
+
 export interface ConsoleDeps {
+  audit: AuditLog;
+  actions: ActionRunner;
+  postRoutes?: Record<string, PostRoute>;
   operators: OperatorStore;
   sessions: SessionStore;
   limiter: LoginLimiter;
@@ -129,13 +147,56 @@ function homePage(session: Session): string {
     body: `<div class="card">
   <h1>Welcome, ${esc(session.username)}</h1>
   <p>You're signed in to the Relay console as ${session.role === "engineer" ? "an engineer" : "an analyst"}.</p>
+  <p><a href="/console/audit">Audit log</a>: every sign-in and action, who did it and when.</p>
   <p class="muted">Batches, review and failed jobs arrive in the next releases. Public status stays at <a href="/status">/status</a>.</p>
+</div>`,
+  });
+}
+
+function auditPage(session: Session, entries: Awaited<ReturnType<AuditLog["recent"]>>): string {
+  const rows = entries
+    .map(
+      (e) => `<tr><td>${esc(e.at.replace("T", " ").slice(0, 19))}</td><td>${esc(e.operator)}</td><td>${esc(e.action)}</td><td>${esc(e.target)}</td><td>${esc(e.outcome)}${e.detail ? ` <span class="muted">(${esc(e.detail)})</span>` : ""}</td></tr>`
+    )
+    .join("");
+  return page({
+    title: "Audit log | Relay Console",
+    session,
+    body: `<div class="card">
+  <h1>Audit log</h1>
+  <p class="muted">${session.role === "engineer" ? "Every operator's" : "Your"} most recent ${entries.length} event${entries.length === 1 ? "" : "s"}, newest first. Times are UTC. Kept for 90 days.</p>
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">Target</th><th scope="col">Outcome</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="5">Nothing recorded yet.</td></tr>`}</tbody>
+  </table></div>
 </div>`,
   });
 }
 
 export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
   const now = deps.now ?? Date.now;
+
+  // For events that must not be blocked by an audit outage (a refused
+  // sign-in is refused either way; sign-out always signs out). The audit
+  // failure itself is logged, never silent.
+  async function auditQuietly(entry: Parameters<AuditLog["record"]>[0]): Promise<void> {
+    try {
+      await deps.audit.record(entry);
+    } catch (error) {
+      logJson("error", {
+        event: "console_audit_write_failed",
+        correlationId: entry.correlationId,
+        outcome: "failure",
+        errorClass: error instanceof Error ? error.constructor.name : "UnknownError",
+        context: { operator: entry.operator, action: entry.action },
+      });
+    }
+  }
+
+  function renderResult(res: http.ServerResponse, session: Session, result: ActionResult): void {
+    if (result.location) return redirect(res, result.location);
+    return html(res, result.status, page({ title: "Relay Console", session, body: `<div class="card"><p role="alert">${esc(result.message ?? "")}</p><p><a href="/console">Back to the console</a></p></div>` }));
+  }
 
   async function login(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     const correlationId = randomUUID();
@@ -150,6 +211,7 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
       const wait = await deps.limiter.blockedFor(username, ip);
       if (wait > 0) {
         logJson("warn", { event: "console_login_blocked", correlationId, outcome: "failure", context: { username, ip, retryAfterSeconds: wait } });
+        await auditQuietly({ operator: username || "(blank)", action: "login", target: ip, outcome: "rejected", correlationId, detail: "locked_out" });
         const minutes = Math.max(1, Math.ceil(wait / 60));
         return html(res, 429, loginPage(`Too many sign-in attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`, username), {
           "Retry-After": String(wait),
@@ -165,9 +227,13 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
         await deps.limiter.recordFailure(username, ip);
         const reason = !operator ? FAIL.unknownUser : operator.disabled ? FAIL.disabled : !passwordOk ? FAIL.wrongPw : FAIL.badCode;
         logJson("warn", { event: "console_login_failed", correlationId, outcome: "failure", context: { username, ip, reason } });
+        await auditQuietly({ operator: username || "(blank)", action: "login", target: ip, outcome: "failed", correlationId, detail: reason });
         return html(res, 401, loginPage(GENERIC_FAILURE, username));
       }
 
+      // Audited before the session exists: if the audit log can't be written,
+      // the sign-in fails (the catch below answers 503).
+      await deps.audit.record({ operator: operator.username, action: "login", target: ip, outcome: "succeeded", correlationId });
       const { id } = await deps.sessions.create(operator.username, operator.role);
       logJson("info", { event: "console_login_succeeded", correlationId, outcome: "success", context: { username, role: operator.role, ip } });
       return redirect(res, "/console", { "Set-Cookie": sessionCookie(id, deps.cookieSecure, SESSION_IDLE_SECONDS) });
@@ -208,12 +274,43 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
     }
     if (!session) return isApi ? json(res, 401, { error: "sign in required" }) : redirect(res, "/console/login");
 
-    if (path === "/console/logout" && req.method === "POST") {
-      await deps.sessions.destroy(id!);
-      logJson("info", { event: "console_logout", correlationId: randomUUID(), outcome: "success", context: { username: session.username } });
-      return redirect(res, "/console/login", { "Set-Cookie": sessionCookie("", deps.cookieSecure, 0) });
+    if (req.method === "POST") {
+      const form = await readForm(req);
+      if (!form) return renderResult(res, session, { status: 400, message: "Something was wrong with that request. Please try again." });
+
+      if (path === "/console/logout") {
+        const correlationId = randomUUID();
+        const integrity = checkIntegrity(req, session, form, deps.trustProxy);
+        if (integrity) {
+          await auditQuietly({ operator: session.username, action: "logout", target: "session", outcome: "rejected", correlationId, detail: integrity });
+          return renderResult(res, session, { status: 403, message: "That request couldn't be verified. Reload the page and try again." });
+        }
+        await auditQuietly({ operator: session.username, action: "logout", target: "session", outcome: "succeeded", correlationId });
+        await deps.sessions.destroy(id!);
+        logJson("info", { event: "console_logout", correlationId, outcome: "success", context: { username: session.username } });
+        return redirect(res, "/console/login", { "Set-Cookie": sessionCookie("", deps.cookieSecure, 0) });
+      }
+
+      const route = deps.postRoutes?.[path];
+      if (route) {
+        const target = route.target(form);
+        if (!route.roles.includes(session.role)) {
+          await auditQuietly({ operator: session.username, action: route.action, target, outcome: "rejected", correlationId: randomUUID(), detail: `role_${session.role}` });
+          return renderResult(res, session, { status: 403, message: "Your role can't do that." });
+        }
+        const result = await deps.actions.perform({ req, session, form, action: route.action, target }, () => route.run(session, form));
+        return renderResult(res, session, result);
+      }
     }
     if (path === "/console" && req.method === "GET") return html(res, 200, homePage(session));
+    if (path === "/console/audit" && req.method === "GET") {
+      try {
+        const entries = await deps.audit.recent(200, session.role === "engineer" ? undefined : session.username);
+        return html(res, 200, auditPage(session, entries));
+      } catch {
+        return html(res, 503, page({ title: "Audit log | Relay Console", session, body: `<div class="card"><h1>Audit log</h1><p>The audit log can't be read right now. Please try again shortly.</p></div>` }));
+      }
+    }
 
     return isApi ? json(res, 404, { error: "not found" }) : html(res, 404, page({ title: "Not found | Relay Console", session, body: `<div class="card"><h1>Page not found</h1><p><a href="/console">Back to the console</a></p></div>` }));
   };

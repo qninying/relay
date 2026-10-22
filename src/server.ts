@@ -25,6 +25,8 @@ import { createConsoleHandler } from "./console/routes.js";
 import { OperatorStore } from "./console/auth/operators.js";
 import { SessionStore } from "./console/auth/sessions.js";
 import { LoginLimiter } from "./console/auth/loginLimiter.js";
+import { AuditLog } from "./console/audit.js";
+import { ActionRunner } from "./console/actions.js";
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -86,12 +88,16 @@ async function main(): Promise<void> {
     workerCount: () => pool.size(),
   });
   // STORY-101: analyst console (login with password + authenticator code).
+  const trustProxy = process.env.RELAY_TRUST_PROXY === "true";
+  const audit = new AuditLog(redis);
   const consoleHandler = createConsoleHandler({
+    audit,
+    actions: new ActionRunner(redis, audit, trustProxy),
     operators: new OperatorStore(redis),
     sessions: new SessionStore(redis),
     limiter: new LoginLimiter(redis),
     cookieSecure: process.env.RELAY_COOKIE_SECURE === "true",
-    trustProxy: process.env.RELAY_TRUST_PROXY === "true",
+    trustProxy,
   });
   const server = createStatusServer({ redis, sampler, metrics, sampleIntervalMs, targetSuccessRate, dlqStream, console: consoleHandler });
 
