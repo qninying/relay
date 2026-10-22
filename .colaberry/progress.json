@@ -3,13 +3,13 @@
   "project": "Relay: AI Agent Job Orchestration Platform",
   "totals": {
     "stories_total": 13,
-    "stories_verified": 6,
+    "stories_verified": 7,
     "stories_submitted": 0,
-    "stories_in_progress": 7,
+    "stories_in_progress": 6,
     "stories_not_started": 0,
     "criteria_total": 41,
-    "criteria_passed": 20,
-    "points_awarded": 2210
+    "criteria_passed": 23,
+    "points_awarded": 2785
   },
   "stories": [
     {
@@ -153,7 +153,7 @@
         "commit_sha": "d69aaa56cf9ee43a7d92b7f9695b81a660259e94",
         "commit_url": "https://github.com/qninying/relay/commit/d69aaa56cf9ee43a7d92b7f9695b81a660259e94",
         "commit_at": "2026-09-22T15:44:12Z",
-        "points_awarded": 191,
+        "points_awarded": 248,
         "outstanding": []
       }
     },
@@ -245,7 +245,7 @@
         "commit_sha": "0d894ef1437fd3bf637516ed3f32e8563c1bddb7",
         "commit_url": "https://github.com/qninying/relay/commit/0d894ef1437fd3bf637516ed3f32e8563c1bddb7",
         "commit_at": "2026-09-22T16:38:14Z",
-        "points_awarded": 191,
+        "points_awarded": 248,
         "outstanding": []
       }
     },
@@ -291,7 +291,7 @@
         "commit_sha": "2a0ade7d03aae3a3ec6b53588590aa7158039d5b",
         "commit_url": "https://github.com/qninying/relay/commit/2a0ade7d03aae3a3ec6b53588590aa7158039d5b",
         "commit_at": "2026-09-22T16:56:36Z",
-        "points_awarded": 191,
+        "points_awarded": 248,
         "outstanding": []
       }
     },
@@ -333,19 +333,15 @@
       "notes": "Autoscaler scales real worker OS processes (ProcessWorkerPool forks workerProcess.ts, each running the standing consumer loop STORY-002 deferred) on real queue depth - the Redis consumer group's lag via queue.getBacklog(), not XLEN. Scale-up is immediate (criterion 1); scale-down waits until the backlog has stayed low for scaleDownAfter evaluations so a brief lull doesn't kill workers (criterion 2). Every scaling evaluation gets a fresh correlation ID that is logged on autoscale_up/autoscale_down/autoscale_down_deferred and passed to each spawned worker, which logs worker_started/worker_stopped with it (trust). Failure paths: unreadable or hung backlog read holds the current count and logs (never guesses 0); pool throw logs autoscale_failed and retries next evaluation; partial spawn logs autoscale_shortfall; a worker ignoring SIGTERM is force-killed after a grace period; a worker that dies on its own is logged and replaced on the next evaluation; a throwing logger never blocks a scaling decision and is counted in status().logFailures. Verified: integration test against real Redis 7.4 and real forked processes - 40 jobs enqueued, scaled 1 -> 4 separate live PIDs, all 40 processed exactly once across more than one worker, scaled back to 1 with the stopped PIDs confirmed dead and each having exited gracefully. Mutation check: forcing desiredWorkerCount to always 1 failed 12 tests. 100/100 tests passing three runs in a row, tsc --noEmit clean. Demo (npx tsx runAutoscaler.ts --quiet): 120-job burst scaled 1 -> 6, drained, deferred twice, scaled 6 -> 1. Limitation: each worker's idempotency store is in-process; correct today because a consumer group delivers each entry to one consumer, but cross-process duplicate protection on redelivery needs a shared store (STORY-008). Autoscaler runs on one host; scaling across machines is STORY-010's deploy concern.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": 129,
-        "outstanding": [
-          "Given job load increases, When workers are needed, Then they are autoscaled",
-          "Given job load decreases, When workers are not needed, Then they are scaled down",
-          "Trust: Autoscaling events are logged with correlation IDs"
-        ]
+        "verified_at": "2026-10-22T15:25:31.825Z",
+        "commit_sha": "48090b041f081445d1ac25dbcb870e7e4dec4454",
+        "commit_url": "https://github.com/qninying/relay/commit/48090b041f081445d1ac25dbcb870e7e4dec4454",
+        "commit_at": "2026-10-22T15:25:21Z",
+        "points_awarded": 248,
+        "outstanding": []
       }
     },
     {
@@ -378,7 +374,7 @@
         "commit_sha": null,
         "commit_url": null,
         "commit_at": null,
-        "points_awarded": 129,
+        "points_awarded": 186,
         "outstanding": [
           "Given a low-confidence job, When it is processed, Then it is routed to the review queue",
           "Given a review queue, When a job is added, Then it is logged with a correlation ID",
@@ -416,7 +412,7 @@
         "commit_sha": null,
         "commit_url": null,
         "commit_at": null,
-        "points_awarded": 129,
+        "points_awarded": 186,
         "outstanding": [
           "Given a DLQ entry, When it is triaged, Then the retry policy is updated",
           "Given the retry policy, When a job fails, Then it follows the updated policy",
@@ -454,7 +450,7 @@
         "commit_sha": null,
         "commit_url": null,
         "commit_at": null,
-        "points_awarded": 129,
+        "points_awarded": 186,
         "outstanding": [
           "Given a chaos drill, When a worker is killed mid-job, Then the system recovers without data loss",
           "Given a queue backlog, When it is forced, Then the system processes jobs without duplicates",
@@ -530,7 +526,7 @@
         "commit_sha": null,
         "commit_url": null,
         "commit_at": null,
-        "points_awarded": 129,
+        "points_awarded": 186,
         "outstanding": [
           "Given a classification task, When it is executed, Then it uses the fixed taxonomy",
           "Given a classification task, When the taxonomy is unavailable, Then the task fails gracefully",
@@ -568,7 +564,7 @@
         "commit_sha": null,
         "commit_url": null,
         "commit_at": null,
-        "points_awarded": 62,
+        "points_awarded": 119,
         "outstanding": [
           "Given a summary is generated, When source data is available, Then it is grounded in that data",
           "Given a summary is generated, When source data is missing, Then the summary generation fails",
