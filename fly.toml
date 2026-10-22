@@ -25,6 +25,10 @@ primary_region = "iad"
   RELAY_COOKIE_SECURE = "true"
   RELAY_TRUST_PROXY = "true"
   RELAY_TARGET_SUCCESS_RATE = "0.9"
+  # Batches (record, inputs, results) are deleted this many days after
+  # submit. The policy default is 30; this portfolio deployment keeps 5 so
+  # the 256 MB Redis (noeviction) can't fill up with old batches.
+  RELAY_BATCH_RETENTION_DAYS = "5"
 
 [http_service]
   internal_port = 8080

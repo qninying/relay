@@ -10,7 +10,8 @@
 //   POST <registered>     actions from later stories, all through
 //                         ActionRunner.perform (STORY-102)
 //   anything else under /console requires a valid session: pages redirect
-//   to the sign-in form, /console/api/* answers 401 JSON.
+//   to the sign-in form, /console/api/* answers 401 JSON. A GET under
+//   /console/api/ (background polling) does not extend the session.
 //
 // Failure paths (STORY-101):
 // - Wrong password, wrong/expired/replayed code, unknown or disabled user:
@@ -23,6 +24,7 @@
 //   nothing falls back to an unchecked session.
 
 import type http from "node:http";
+import { once } from "node:events";
 import { randomUUID } from "node:crypto";
 import { logJson } from "../logger.js";
 import { matchTotp } from "./auth/totp.js";
@@ -71,11 +73,31 @@ export interface UploadRoute {
   handle: (session: Session, form: URLSearchParams) => Promise<PageResult>;
 }
 
+// A small JSON read under /console/api/ (e.g. batch progress, polled).
+export interface ApiRoute {
+  match: RegExp;
+  handle: (session: Session, match: RegExpMatchArray) => Promise<{ status: number; body: unknown }>;
+}
+
+// A file streamed to the browser (e.g. a results CSV). handle may answer
+// with a page instead (not found, unavailable).
+export interface Download {
+  filename: string;
+  type: string;
+  chunks: AsyncIterable<string>;
+}
+export interface DownloadRoute {
+  match: RegExp;
+  handle: (session: Session, match: RegExpMatchArray) => Promise<Download | PageResult>;
+}
+
 // What a console feature (batches, review, failed jobs) plugs in.
 export interface ConsoleExtension {
   // Static scripts/styles the pages load (same origin, so the CSP allows them).
   assets?: Record<string, { type: string; body: string }>;
   getRoutes?: GetRoute[];
+  apiRoutes?: ApiRoute[];
+  downloadRoutes?: DownloadRoute[];
   postRoutes?: Record<string, PostRoute>;
   uploadRoutes?: Record<string, UploadRoute>;
 }
@@ -118,6 +140,30 @@ function redirect(res: http.ServerResponse, location: string, extra: Record<stri
 function json(res: http.ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "Content-Type": "application/json", ...HEADERS });
   res.end(JSON.stringify(body));
+}
+
+// Writes chunks as they come, waiting when the client is slow. Once the
+// headers are out a failure can't become an error page, so the connection
+// is cut instead: the browser reports a failed download rather than saving
+// a file that silently stops partway.
+async function stream(res: http.ServerResponse, download: Download, correlationId: string): Promise<void> {
+  res.writeHead(200, { "Content-Type": download.type, "Content-Disposition": `attachment; filename="${download.filename}"`, ...HEADERS });
+  try {
+    for await (const chunk of download.chunks) {
+      if (res.destroyed) return;
+      if (!res.write(chunk)) await Promise.race([once(res, "drain"), once(res, "close")]);
+    }
+    res.end();
+  } catch (error) {
+    logJson("error", {
+      event: "console_download_interrupted",
+      correlationId,
+      outcome: "failure",
+      errorClass: error instanceof Error ? error.constructor.name : "UnknownError",
+      context: { filename: download.filename },
+    });
+    res.destroy();
+  }
 }
 
 export function readCookie(req: http.IncomingMessage, name: string): string | null {
@@ -218,6 +264,8 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
   const postRoutes: Record<string, PostRoute> = Object.assign({}, deps.postRoutes, ...extensions.map((e) => e.postRoutes ?? {}));
   const uploadRoutes: Record<string, UploadRoute> = Object.assign({}, ...extensions.map((e) => e.uploadRoutes ?? {}));
   const getRoutes: GetRoute[] = extensions.flatMap((e) => e.getRoutes ?? []);
+  const apiRoutes: ApiRoute[] = extensions.flatMap((e) => e.apiRoutes ?? []);
+  const downloadRoutes: DownloadRoute[] = extensions.flatMap((e) => e.downloadRoutes ?? []);
   const assets: Record<string, { type: string; body: string }> = Object.assign({}, ...extensions.map((e) => e.assets ?? {}));
 
   // For events that must not be blocked by an audit outage (a refused
@@ -305,7 +353,8 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
     const id = readCookie(req, SESSION_COOKIE);
     let session: Session | null = null;
     try {
-      session = id ? await deps.sessions.touch(id) : null;
+      const background = isApi && req.method === "GET";
+      session = id ? await (background ? deps.sessions.peek(id) : deps.sessions.touch(id)) : null;
     } catch (error) {
       logJson("error", {
         event: "console_session_unavailable",
@@ -373,6 +422,20 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
         if (match) {
           const result = await route.render(session, match, url);
           return html(res, result.status, result.html);
+        }
+      }
+      for (const route of apiRoutes) {
+        const match = path.match(route.match);
+        if (match) {
+          const result = await route.handle(session, match);
+          return json(res, result.status, result.body);
+        }
+      }
+      for (const route of downloadRoutes) {
+        const match = path.match(route.match);
+        if (match) {
+          const result = await route.handle(session, match);
+          return "chunks" in result ? stream(res, result, randomUUID()) : html(res, result.status, result.html);
         }
       }
     }

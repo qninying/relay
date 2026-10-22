@@ -12,6 +12,7 @@
 import { redisFromEnv } from "./redisConnection.js";
 import { classifierFromEnv } from "./classifierAdapter.js";
 import { BatchResults } from "./batchResults.js";
+import { batchRetentionDaysFromEnv } from "./batchRetention.js";
 import { logJson } from "./logger.js";
 import { InMemoryIdempotencyStore, RedisIdempotencyStore } from "./idempotencyStore.js";
 import { RedisStreamQueue } from "./queue.js";
@@ -68,7 +69,7 @@ async function main(): Promise<number> {
     // STORY-009: shared across all workers, so redelivery can't duplicate.
     durableStore,
     // STORY-103: batch items are classified and recorded per batch.
-    batch: { classifier, results: new BatchResults(redis), reviewStream: reviewQueue.streamName, durableStore },
+    batch: { classifier, results: new BatchResults(redis, undefined, batchRetentionDaysFromEnv()), reviewStream: reviewQueue.streamName, durableStore },
     reclaimIdleMs: optionalNumber("RELAY_RECLAIM_IDLE_MS"),
     maxDeliveries: optionalNumber("RELAY_MAX_DELIVERIES"),
     simulatedWorkMs: optionalNumber("RELAY_SIMULATED_WORK_MS"),

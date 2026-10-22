@@ -10,6 +10,11 @@
 // Counts are derived from the stored outcomes, never kept as separate
 // counters, so they can't drift from the items.
 //
+// Retention (batchRetention.ts): the items hash expires with its batch
+// record, so a batch's results never outlive it. An item for a batch with
+// no record (expired, or a batch not made in the console) gets the default
+// retention instead, so nothing is kept forever.
+//
 // REQ-012: every outcome is validated against the declared schema for its
 // status (guardrails/outputContractGuardrail.ts, the same check STORY-003
 // applies to external API output) before it is persisted. An off-contract
@@ -20,6 +25,7 @@ import type { Redis } from "ioredis";
 import type { Job } from "./processJob.js";
 import { checkOutputContractGuardrail, type JobOutputSchema } from "../guardrails/outputContractGuardrail.js";
 import { logJson } from "./logger.js";
+import { DAY_MS, DEFAULT_BATCH_RETENTION_DAYS } from "./batchRetention.js";
 
 export type ItemStatus = "done" | "review" | "failed";
 
@@ -65,6 +71,9 @@ export function checkOutcome(outcome: ItemOutcome): string[] {
 
 const RECORD_ONCE = `
 if redis.call('HSETNX', KEYS[1], ARGV[1], ARGV[2]) == 0 then return 0 end
+local ttl = redis.call('PTTL', KEYS[3])
+if ttl > 0 then redis.call('PEXPIRE', KEYS[1], ttl)
+elseif ttl == -2 then redis.call('PEXPIRE', KEYS[1], ARGV[4]) end
 if ARGV[3] ~= '' then redis.call('XADD', KEYS[2], '*', 'data', ARGV[3]) end
 return 1
 `;
@@ -72,7 +81,8 @@ return 1
 export class BatchResults {
   constructor(
     private readonly redis: Redis,
-    private readonly prefix = "relay:batch:"
+    private readonly prefix = "relay:batch:",
+    private readonly retentionDays = DEFAULT_BATCH_RETENTION_DAYS
   ) {}
 
   itemsKey(batchId: string): string {
@@ -96,12 +106,14 @@ export class BatchResults {
     }
     const result = await this.redis.eval(
       RECORD_ONCE,
-      2,
+      3,
       this.itemsKey(batchId),
       review?.stream ?? `${this.prefix}unused`,
+      `${this.prefix}${batchId}:meta`,
       jobId,
       JSON.stringify(outcome),
-      review ? JSON.stringify(review.entry) : ""
+      review ? JSON.stringify(review.entry) : "",
+      String(this.retentionDays * DAY_MS)
     );
     return result === 1;
   }
@@ -111,14 +123,27 @@ export class BatchResults {
     return raw ? (JSON.parse(raw) as ItemOutcome) : null;
   }
 
+  // Outcomes for several items in one round trip, in the order asked
+  // (null where an item has no result yet). STORY-105's item list and export.
+  async getMany(batchId: string, jobIds: string[]): Promise<Array<ItemOutcome | null>> {
+    if (jobIds.length === 0) return [];
+    const raw = await this.redis.hmget(this.itemsKey(batchId), ...jobIds);
+    return raw.map((r) => (r ? (JSON.parse(r) as ItemOutcome) : null));
+  }
+
   async counts(batchId: string): Promise<BatchCounts> {
     const counts: BatchCounts = { done: 0, review: 0, failed: 0, recorded: 0 };
+    // HSCAN may return a field more than once (while Redis rehashes a large
+    // hash), so each item is counted by its id, once (STORY-105 trust).
+    const seen = new Set<string>();
     let cursor = "0";
     do {
       const [next, flat] = await this.redis.hscan(this.itemsKey(batchId), cursor, "COUNT", 500);
       cursor = next;
-      for (let i = 1; i < flat.length; i += 2) {
-        const status = (JSON.parse(flat[i]) as ItemOutcome).status;
+      for (let i = 0; i < flat.length; i += 2) {
+        if (seen.has(flat[i])) continue;
+        seen.add(flat[i]);
+        const status = (JSON.parse(flat[i + 1]) as ItemOutcome).status;
         counts[status] += 1;
         counts.recorded += 1;
       }

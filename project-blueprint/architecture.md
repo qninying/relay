@@ -81,6 +81,14 @@ unchanged and need no login.
 3. **Accounts: named operator accounts with a role (analyst / engineer),**
    created by an admin script. Assumed rather than asked, because the audit
    log needs to say who did what; one shared account would defeat it.
+4. **Batch retention: 30 days as the policy, 5 days on the portfolio
+   deployment.** Batches (record, inputs, results) used to be kept forever;
+   on a 256 MB Redis that refuses writes when full, about 25 maximum-size
+   batches would have stopped all of Relay. Now they expire
+   `RELAY_BATCH_RETENTION_DAYS` after submit (default 30, the policy to
+   defend for real use: time to hand results on and answer questions about
+   them). `fly.toml` sets 5 because this deployment is a portfolio project.
+   Decided by Quincy.
 
 ## Not covered
 

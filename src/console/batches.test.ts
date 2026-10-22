@@ -82,7 +82,7 @@ describe.skipIf(!redisAvailable)("batch upload and submit (integration, real Red
     const handler = createConsoleHandler({
       audit,
       actions: new ActionRunner(redis, audit, false, `${P}idem:`),
-      extensions: [batchConsole({ store: new BatchStore(redis, P), results, queue: flakyQueue })],
+      extensions: [batchConsole({ store: new BatchStore(redis, P), results, queue: flakyQueue, audit })],
       operators,
       sessions: new SessionStore(redis, `${P}sess:`),
       limiter: new LoginLimiter(redis, { prefix: `${P}fail:` }),
@@ -134,7 +134,9 @@ describe.skipIf(!redisAvailable)("batch upload and submit (integration, real Red
   it("serves the upload page and its script from the console's own origin", async () => {
     const page = await get("/console/batches/new");
     expect(page.status).toBe(200);
-    expect(await page.text()).toContain('<script src="/console/assets/upload.js"></script>');
+    const body = await page.text();
+    expect(body).toContain('<script src="/console/assets/upload.js"></script>');
+    expect(body).toContain("deleted 30 days after they're submitted");
     const js = await get("/console/assets/upload.js");
     expect(js.headers.get("content-type")).toContain("text/javascript");
     expect(js.headers.get("content-security-policy")).toContain("script-src 'self'");
@@ -177,7 +179,7 @@ describe.skipIf(!redisAvailable)("batch upload and submit (integration, real Red
 
     const detail = await (await get(`/console/batches/${batchId}`)).text();
     expect(detail).toContain("8 rows");
-    expect(detail).toContain("<tr><th scope=\"row\">Waiting</th><td>8</td></tr>");
+    expect(detail).toContain("<tr><th scope=\"row\">Waiting</th><td id=\"count-waiting\">8</td></tr>");
     expect(await (await get("/console/batches")).text()).toContain(batchId);
   });
 
@@ -259,8 +261,8 @@ describe.skipIf(!redisAvailable)("batch upload and submit (integration, real Red
     controller.abort();
     await loop;
     const detail = await (await get(`/console/batches/${batchId}`)).text();
-    expect(detail).toContain('<tr><th scope="row">Done</th><td>2</td></tr>');
-    expect(detail).toContain('<tr><th scope="row">Waiting for review</th><td>1</td></tr>');
-    expect(detail).toContain('<tr><th scope="row">Waiting</th><td>0</td></tr>');
+    expect(detail).toContain('<tr><th scope="row">Done</th><td id="count-done">2</td></tr>');
+    expect(detail).toContain('<tr><th scope="row">Waiting for review</th><td id="count-review">1</td></tr>');
+    expect(detail).toContain('<tr><th scope="row">Waiting</th><td id="count-waiting">0</td></tr>');
   });
 });

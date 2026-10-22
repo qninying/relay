@@ -31,6 +31,7 @@ import { ActionRunner } from "./console/actions.js";
 import { batchConsole } from "./console/batchPages.js";
 import { BatchStore } from "./console/batches.js";
 import { BatchResults } from "./batchResults.js";
+import { batchRetentionDaysFromEnv } from "./batchRetention.js";
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
   // STORY-103: refuse to start with a misconfigured classifier, rather than
   // letting every worker crash on its first batch item.
   classifierFromEnv();
+  const retentionDays = batchRetentionDaysFromEnv();
   const redis = redisFromEnv();
   const queue = new RedisStreamQueue(redis, STREAMS.jobs, STREAMS.group);
   await queue.ensureConsumerGroup();
@@ -100,8 +102,8 @@ async function main(): Promise<void> {
   const consoleHandler = createConsoleHandler({
     audit,
     actions: new ActionRunner(redis, audit, trustProxy),
-    // STORY-104: batch upload, preview and submit.
-    extensions: [batchConsole({ store: new BatchStore(redis), results: new BatchResults(redis), queue })],
+    // STORY-104/105: batch upload, submit, progress and results download.
+    extensions: [batchConsole({ store: new BatchStore(redis, undefined, retentionDays), results: new BatchResults(redis, undefined, retentionDays), queue, audit })],
     operators: new OperatorStore(redis),
     sessions: new SessionStore(redis),
     limiter: new LoginLimiter(redis),

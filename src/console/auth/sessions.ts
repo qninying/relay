@@ -47,6 +47,14 @@ export class SessionStore {
     return raw ? (JSON.parse(raw) as Session) : null;
   }
 
+  // Reads without sliding the expiry: background polling (STORY-105) must
+  // not keep an unattended tab signed in forever.
+  async peek(id: string): Promise<Session | null> {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(id)) return null;
+    const raw = await this.redis.get(this.prefix + hashId(id));
+    return raw ? (JSON.parse(raw) as Session) : null;
+  }
+
   async destroy(id: string): Promise<void> {
     await this.redis.del(this.prefix + hashId(id));
   }

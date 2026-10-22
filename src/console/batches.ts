@@ -13,12 +13,21 @@
 //   resumes from there. If Redis fails partway (e.g. it's full, noeviction),
 //   the failure is reported, nothing already queued is queued again on retry,
 //   and the batch is marked submitted only when every row is queued.
+//
+// Retention: the batch record and its inputs expire retentionDays after
+// submit (batchRetention.ts; the results hash follows the record), and the
+// batch list drops expired batches.
+//
+// STORY-105: each batch's inputs are kept in submit order (a Redis list), so
+// the batch page can list items a page at a time and the results export can
+// pair every input with its outcome.
 
 import type { Redis } from "ioredis";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { RedisStreamQueue } from "../queue.js";
 import type { CsvRow, RowError } from "./csv.js";
 import { logJson } from "../logger.js";
+import { DAY_MS, DEFAULT_BATCH_RETENTION_DAYS } from "../batchRetention.js";
 
 export const DRAFT_TTL_SECONDS = 60 * 60;
 
@@ -42,6 +51,16 @@ export interface BatchMeta {
   status: "submitting" | "submitted";
   createdAt: string;
   submittedAt?: string;
+  // When Redis deletes the batch (absent on batches made before retention).
+  expiresAt?: string;
+}
+
+// One submitted row, with the job id its result is recorded under.
+export interface BatchInput {
+  jobId: string;
+  row: number;
+  text: string;
+  ref?: string;
 }
 
 export class BatchSubmitError extends Error {
@@ -63,7 +82,8 @@ const SUBMIT_LOCK_SECONDS = 300;
 export class BatchStore {
   constructor(
     private readonly redis: Redis,
-    private readonly prefix = "relay:console:"
+    private readonly prefix = "relay:console:",
+    readonly retentionDays = DEFAULT_BATCH_RETENTION_DAYS
   ) {}
 
   private draftKey(operator: string, draftId: string): string {
@@ -71,6 +91,9 @@ export class BatchStore {
   }
   private metaKey(batchId: string): string {
     return `relay:batch:${batchId}:meta`;
+  }
+  private inputsKey(batchId: string): string {
+    return `relay:batch:${batchId}:inputs`;
   }
   private indexKey(): string {
     return `${this.prefix}batches`;
@@ -110,6 +133,7 @@ export class BatchStore {
       status: h.status === "submitted" ? "submitted" : "submitting",
       createdAt: h.createdAt,
       submittedAt: h.submittedAt || undefined,
+      expiresAt: h.expiresAt || undefined,
     };
   }
 
@@ -120,8 +144,35 @@ export class BatchStore {
     return metas.filter((m): m is BatchMeta => m !== null);
   }
 
+  // Drops expired batches from the index first, so pages and totals agree.
   async count(): Promise<number> {
+    await this.redis.zremrangebyscore(this.indexKey(), "-inf", `(${Date.now() - this.retentionDays * DAY_MS}`);
     return this.redis.zcard(this.indexKey());
+  }
+
+  // Inputs in submit order, offset/limit for paging.
+  async items(batchId: string, offset: number, limit: number): Promise<BatchInput[]> {
+    const raw = await this.redis.lrange(this.inputsKey(batchId), offset, offset + limit - 1);
+    return raw.map((r) => {
+      const { row, text, ref } = JSON.parse(r) as Omit<BatchInput, "jobId">;
+      return { jobId: `${batchId}-${row}`, row, text, ...(ref ? { ref } : {}) };
+    });
+  }
+
+  async itemCount(batchId: string): Promise<number> {
+    return this.redis.llen(this.inputsKey(batchId));
+  }
+
+  // Replaces the list in one MULTI, so re-running (a resumed submit) leaves
+  // exactly one copy of each input.
+  private async saveInputs(draft: Draft, expiresAt?: string): Promise<void> {
+    const key = this.inputsKey(draft.batchId);
+    if ((await this.redis.llen(key)) === draft.rows.length) return;
+    const values = draft.rows.map((r) => JSON.stringify({ row: r.row, text: r.text, ...(r.ref ? { ref: r.ref } : {}) }));
+    const until = expiresAt ? Date.parse(expiresAt) : Date.now() + this.retentionDays * DAY_MS;
+    const replies = await this.redis.multi().del(key).rpush(key, ...values).pexpireat(key, until).exec();
+    const failed = replies?.find(([error]) => error);
+    if (!replies || failed) throw failed?.[0] ?? new Error("saving batch inputs: transaction aborted");
   }
 
   async submit(draft: Draft, queue: RedisStreamQueue): Promise<BatchMeta> {
@@ -129,10 +180,13 @@ export class BatchStore {
     // HSETNX on batchId: creates the record once; a second submit of the
     // same draft finds it and resumes (or returns it if already complete).
     if (await this.redis.hsetnx(key, "batchId", draft.batchId)) {
+      const now = Date.now();
+      const expiresAt = now + this.retentionDays * DAY_MS;
       await this.redis
         .multi()
-        .hset(key, "operator", draft.operator, "filename", draft.filename, "total", String(draft.rows.length), "queued", "0", "status", "submitting", "createdAt", new Date().toISOString())
-        .zadd(this.indexKey(), Date.now(), draft.batchId)
+        .hset(key, "operator", draft.operator, "filename", draft.filename, "total", String(draft.rows.length), "queued", "0", "status", "submitting", "createdAt", new Date(now).toISOString(), "expiresAt", new Date(expiresAt).toISOString())
+        .pexpireat(key, expiresAt)
+        .zadd(this.indexKey(), now, draft.batchId)
         .exec();
     }
     let meta = (await this.meta(draft.batchId))!;
@@ -155,6 +209,8 @@ export class BatchStore {
   private async queueRows(draft: Draft, queue: RedisStreamQueue, key: string, meta: BatchMeta): Promise<BatchMeta> {
     meta = (await this.meta(draft.batchId)) ?? meta;
     if (meta.status === "submitted") return meta;
+    // Before any row is queued, so a result never exists without its input.
+    await this.saveInputs(draft, meta.expiresAt);
     for (let i = meta.queued; i < draft.rows.length; i++) {
       const row = draft.rows[i];
       const id = `${draft.batchId}-${row.row}`;

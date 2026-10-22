@@ -70,3 +70,28 @@ ${body}
 export function actionFields(session: Session): string {
   return `<input type="hidden" name="csrf" value="${esc(session.csrfToken)}"><input type="hidden" name="idem" value="${newIdempotencyKey()}">`;
 }
+
+export function card(title: string, inner: string): string {
+  return `<div class="card"><h1>${esc(title)}</h1>${inner}</div>`;
+}
+
+export function fmt(n: number): string {
+  return n.toLocaleString("en-US");
+}
+
+// STORY-105: long lists are shown a page at a time, ?page=N (1-based).
+export const PAGE_SIZE = 50;
+
+// The requested page, clamped to 1..lastPage (anything unreadable is page 1).
+export function pageNumber(url: URL, totalItems: number): number {
+  const asked = Number(url.searchParams.get("page") ?? "1");
+  const last = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  return Number.isInteger(asked) && asked >= 1 ? Math.min(asked, last) : 1;
+}
+
+export function pager(basePath: string, current: number, totalItems: number): string {
+  const last = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  if (last === 1) return "";
+  const link = (n: number, text: string) => `<a href="${esc(basePath)}?page=${n}">${text}</a>`;
+  return `<nav aria-label="Pages" style="display:flex;gap:16px;align-items:center;margin-top:12px">${current > 1 ? link(current - 1, "Previous") : ""}<span class="muted">Page ${fmt(current)} of ${fmt(last)}</span>${current < last ? link(current + 1, "Next") : ""}</nav>`;
+}
