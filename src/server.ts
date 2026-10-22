@@ -21,6 +21,7 @@ import { MonitoringSampler } from "./monitoringSampler.js";
 import { createStatusServer } from "./statusServer.js";
 import { logJson } from "./logger.js";
 import { STREAM_DEFAULTS } from "./streams.js";
+import { classifierFromEnv } from "./classifierAdapter.js";
 import { createConsoleHandler } from "./console/routes.js";
 import { OperatorStore } from "./console/auth/operators.js";
 import { SessionStore } from "./console/auth/sessions.js";
@@ -46,6 +47,9 @@ async function main(): Promise<void> {
   const dlqStream = STREAMS.dlq;
   const reviewStream = STREAMS.review;
 
+  // STORY-103: refuse to start with a misconfigured classifier, rather than
+  // letting every worker crash on its first batch item.
+  classifierFromEnv();
   const redis = redisFromEnv();
   const queue = new RedisStreamQueue(redis, STREAMS.jobs, STREAMS.group);
   await queue.ensureConsumerGroup();

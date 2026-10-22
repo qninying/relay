@@ -9,6 +9,7 @@ import { processJob, processJobDurable, type Job, type ProcessResult } from "./p
 import type { DurableIdempotencyStore, IdempotencyStore } from "./idempotencyStore.js";
 import type { RedisStreamQueue } from "./queue.js";
 import { routeToReviewQueue, type ReviewRouteOptions, type ReviewRouteResult } from "./reviewQueue.js";
+import { batchPayload, handleBatchItem, type BatchItemResult, type BatchWorkerDeps } from "./batchWorker.js";
 
 export interface JobRouting {
   store: IdempotencyStore;
@@ -17,11 +18,19 @@ export interface JobRouting {
   durableStore?: DurableIdempotencyStore;
   reviewQueue?: RedisStreamQueue;
   reviewOptions?: ReviewRouteOptions;
+  // STORY-103: when set, batch items (payload.batchId + text) are classified
+  // and their results recorded per batch (batchWorker.ts).
+  batch?: BatchWorkerDeps;
 }
 
-export type RouteOutcome = { route: "review"; result: ReviewRouteResult } | { route: "process"; result: ProcessResult };
+export type RouteOutcome =
+  | { route: "review"; result: ReviewRouteResult }
+  | { route: "process"; result: ProcessResult }
+  | { route: "batch"; result: BatchItemResult };
 
 export async function routeJob(job: Job, routing: JobRouting): Promise<RouteOutcome> {
+  const batch = routing.batch ? batchPayload(job) : null;
+  if (batch && routing.batch) return { route: "batch", result: await handleBatchItem(job, batch, routing.batch) };
   if (isLowConfidence(job) && routing.reviewQueue) {
     return { route: "review", result: await routeToReviewQueue(routing.reviewQueue, job, routing.reviewOptions) };
   }

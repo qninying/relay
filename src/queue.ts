@@ -34,6 +34,10 @@ export class RedisStreamQueue {
     private readonly groupName: string
   ) {}
 
+  get streamName(): string {
+    return this.streamKey;
+  }
+
   // Idempotent: BUSYGROUP means the group already exists, which is the normal
   // case on every call after the first — not a failure.
   async ensureConsumerGroup(): Promise<void> {

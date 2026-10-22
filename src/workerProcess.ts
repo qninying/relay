@@ -10,6 +10,8 @@
 // and the autoscaler's next evaluation replaces it.
 
 import { redisFromEnv } from "./redisConnection.js";
+import { classifierFromEnv } from "./classifierAdapter.js";
+import { BatchResults } from "./batchResults.js";
 import { logJson } from "./logger.js";
 import { InMemoryIdempotencyStore, RedisIdempotencyStore } from "./idempotencyStore.js";
 import { RedisStreamQueue } from "./queue.js";
@@ -53,6 +55,8 @@ async function main(): Promise<number> {
   // STORY-007: review and DLQ streams default to siblings of the main stream.
   // Group names only matter to whoever consumes them (a reviewer, DLQ
   // triage); workers only write to these.
+  const durableStore = new RedisIdempotencyStore(redis, process.env.RELAY_IDEMPOTENCY_PREFIX ?? `${streamKey}:idem:`);
+  const classifier = classifierFromEnv();
   const reviewQueue = new RedisStreamQueue(redis, process.env.RELAY_REVIEW_STREAM_KEY ?? `${streamKey}:review`, "relay-review");
   const dlq = new RedisStreamQueue(redis, process.env.RELAY_DLQ_STREAM_KEY ?? `${streamKey}:dlq`, "relay-dlq");
   const result = await runWorkerLoop(queue, new InMemoryIdempotencyStore(), {
@@ -62,7 +66,9 @@ async function main(): Promise<number> {
     reviewQueue,
     dlq,
     // STORY-009: shared across all workers, so redelivery can't duplicate.
-    durableStore: new RedisIdempotencyStore(redis, process.env.RELAY_IDEMPOTENCY_PREFIX ?? `${streamKey}:idem:`),
+    durableStore,
+    // STORY-103: batch items are classified and recorded per batch.
+    batch: { classifier, results: new BatchResults(redis), reviewStream: reviewQueue.streamName, durableStore },
     reclaimIdleMs: optionalNumber("RELAY_RECLAIM_IDLE_MS"),
     maxDeliveries: optionalNumber("RELAY_MAX_DELIVERIES"),
     simulatedWorkMs: optionalNumber("RELAY_SIMULATED_WORK_MS"),

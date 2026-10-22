@@ -38,7 +38,7 @@ export type ReviewRouteResult = { routedTo: "review"; attempts: number } | { rou
 
 // The original job is preserved whole (same as a DLQ entry), plus why it
 // needs review, so a reviewer sees exactly what the worker saw.
-function buildReviewEntry(job: Job, reason: ReviewReason, details: Record<string, unknown>): Job {
+export function buildReviewEntry(job: Job, reason: ReviewReason, details: Record<string, unknown>): Job {
   return {
     id: job.id,
     correlationId: job.correlationId,

@@ -18,6 +18,7 @@
 
 import { logJson } from "./logger.js";
 import { routeJob } from "./jobRouter.js";
+import type { BatchWorkerDeps } from "./batchWorker.js";
 import type { DurableIdempotencyStore, IdempotencyStore } from "./idempotencyStore.js";
 import type { Delivery, RedisStreamQueue } from "./queue.js";
 import { moveToDeadLetterQueue } from "./dlq.js";
@@ -42,6 +43,8 @@ export interface WorkerLoopOptions {
   // Deliveries after which a message is dead-lettered. Default 5.
   maxDeliveries?: number;
   simulatedWorkMs?: number;
+  // STORY-103: classify batch items and record their results.
+  batch?: BatchWorkerDeps;
   idlePollMs?: number;
   errorBackoffMs?: number;
   maxConsecutiveErrors?: number;
@@ -128,6 +131,7 @@ export async function runWorkerLoop(
         durableStore: options.durableStore,
         reviewQueue: options.reviewQueue,
         reviewOptions: { dlq: options.dlq },
+        batch: options.batch,
       });
     } catch (error) {
       // routeToReviewQueue already logged review_route_failed with the job's
