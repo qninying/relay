@@ -27,8 +27,8 @@ the same criteria out of `.colaberry/progress.json`, which Claude Code keeps in
 step (see the managed block in CLAUDE.md). Ticking something you have not
 actually met only misleads you.
 
-- [ ] Given a summary is generated, When source data is available, Then it is grounded in that data
-- [ ] Given a summary is generated, When source data is missing, Then the summary generation fails
-- [ ] Trust: Given a summary is generated, Then its source data is logged for verification
+- [x] Given a summary is generated, When source data is available, Then it is grounded in that data
+- [x] Given a summary is generated, When source data is missing, Then the summary generation fails
+- [x] Trust: Given a summary is generated, Then its source data is logged for verification
 
 When every box above is ticked, stop and show the demo.

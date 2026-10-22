@@ -571,20 +571,29 @@
       "criteria": [
         {
           "text": "Given a summary is generated, When source data is available, Then it is grounded in that data",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a summary is generated, When source data is missing, Then the summary generation fails",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Given a summary is generated, Then its source data is logged for verification",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "src/summarizeJob.ts",
+        "src/summarizeJob.test.ts",
+        "src/sourceArchive.ts",
+        "src/reviewQueue.ts",
+        "src/tsconfig.json",
+        "src/runSummaries.ts"
+      ],
+      "tests_added": [
+        "src/summarizeJob.test.ts"
+      ],
+      "notes": "summarizeJob.ts enforces REQ-016 by order: fetch the item's source (no source, no summary: the summarizer is never called), archive the exact source text by SHA-256 (sourceArchive.ts, Redis, content-addressed, 30-day TTL, tamper-checked on read), summarize from that text only, then check the summary with the existing grounding guardrail (guardrails/groundingGuardrail.ts, its first real caller). A summary that fails (low overlap, a number not in the source, empty) is never returned: it goes to the STORY-007 review queue as ungrounded_summary with its violations and source reference. Criterion 1: summarizer called with exactly the source text; grounded summaries returned with the source reference; ungrounded ones rejected and routed. Criterion 2: missing or blank source fails as source_missing, an unreachable or hanging source fails as source_unavailable after capped retries, summarizer never called in either case. Trust: summary_generated / summary_rejected_ungrounded / summary_failed logged with the job's correlation ID and the source's id, SHA-256 and length; verifySummary re-checks a summary against the archived source from the logged hash alone. Failure paths: source unavailable (above); summary generation fails (summarizer errors retried then summarizer_failed with the source reference; source can't be archived fails before summarizing rather than producing an unverifiable summary; review queue down falls back to the DLQ); logging unavailable: summary still completes and the result carries the source reference, dropped lines counted. Verified: 177/177 tests on 5 consecutive full-suite runs (12 new, against real Redis), guardrails 16/16, tsc --noEmit clean. Mutation checks: skipping the grounding check failed 4 tests, allowing a blank source failed 1. Demo (npx tsx src/runSummaries.ts): 1 grounded and re-verified from the archive, 1 rejected for an invented number, 1 rejected for drifting off the source, 1 failed for missing source. Limitations: the grounding guardrail is lexical (word overlap + numbers), so a summary that reuses the source's words but changes their meaning can pass; no real LLM summarizer or source fetcher is wired in (both injected).",
       "updated_at": null,
       "verification": {
         "state": "in_progress",

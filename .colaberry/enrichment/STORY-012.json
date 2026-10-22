@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1",
+  "projectId": "62ef2fc6-5142-460b-997f-c26f01622db9",
+  "storyId": "STORY-012",
+  "projectTruthBaseRevision": 1,
+  "observedAt": "2026-10-22T17:30:00.000Z",
+  "sourceCommitSha": null,
+  "factProposals": [
+    {
+      "dimension": "data",
+      "value": "The exact source text behind every summary is archived in Redis under relay:source:<sha256> for 30 days, and checked against its hash when read back.",
+      "evidence": "src/sourceArchive.ts"
+    },
+    {
+      "dimension": "systems",
+      "value": "The review queue now carries two kinds of entry: low_confidence classifications (STORY-007) and ungrounded_summary rejections (STORY-012).",
+      "evidence": "src/reviewQueue.ts, src/summarizeJob.ts"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "The summarizer is only ever called after source data has been fetched, found non-empty and archived.",
+      "rationale": "a summarizer given nothing (or something unrecorded) fills the gap from its own knowledge; REQ-016 needs every summary traceable to the exact text it came from.",
+      "evidence": "src/summarizeJob.ts"
+    },
+    {
+      "statement": "If the source can't be archived, the summary fails instead of being produced without a record.",
+      "rationale": "an unverifiable summary is exactly what the trust criterion rules out; failing is visible and retryable.",
+      "evidence": "src/summarizeJob.ts, src/summarizeJob.test.ts"
+    },
+    {
+      "statement": "Ungrounded summaries go to the review queue with the rejected text, violations and source reference, and are never returned as results.",
+      "rationale": "the grounding guardrail's own caller contract: a rejection routes to review, never to silent persistence.",
+      "evidence": "src/summarizeJob.ts, guardrails/groundingGuardrail.ts"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The grounding check is lexical (word overlap and numbers). A summary that reuses the source's words but changes their meaning can pass.",
+      "evidence": "guardrails/groundingGuardrail.ts"
+    },
+    {
+      "statement": "No real LLM summarizer or source fetcher is wired in; both are injected functions, and the demo uses scripted stand-ins.",
+      "evidence": "src/summarizeJob.ts, src/runSummaries.ts"
+    }
+  ],
+  "demonstrationEvidence": [
+    { "kind": "test", "ref": "src/summarizeJob.test.ts" }
+  ],
+  "measurementEvents": []
+}

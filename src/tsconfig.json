@@ -11,6 +11,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": ["**/*.ts", "../guardrails/outputContractGuardrail.ts"],
+  "include": ["**/*.ts", "../guardrails/outputContractGuardrail.ts", "../guardrails/groundingGuardrail.ts"],
   "exclude": ["dist", "node_modules"]
 }
