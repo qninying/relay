@@ -69,7 +69,10 @@ describe.skipIf(!redisAvailable)("autoscaling real worker processes (integration
 
   afterAll(async () => {
     await pool.stopAll("test-teardown");
-    await redis.del(streamKey);
+    // Workers also write sibling keys (idempotency claims, review and DLQ
+    // streams) under the stream's name since STORY-009/007.
+    const siblings = await redis.keys(`${streamKey}:*`);
+    await redis.del(streamKey, ...siblings);
   });
 
   it("getBacklog reports undelivered entries and refuses to guess for a missing group", async () => {

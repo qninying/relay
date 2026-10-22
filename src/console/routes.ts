@@ -47,14 +47,44 @@ const GENERIC_FAILURE = "That username, password or code isn't right. Check them
 export interface PostRoute {
   action: string;
   roles: Role[];
-  target: (form: URLSearchParams) => string;
+  // What the audit entry names as the target. May look things up (e.g. the
+  // batch a draft belongs to), so the audit never trusts a form's own label.
+  target: (form: URLSearchParams, session: Session) => string | Promise<string>;
   run: (session: Session, form: URLSearchParams) => Promise<ActionResult>;
+}
+
+export interface PageResult {
+  status: number;
+  html: string;
+}
+
+// A page added by a later story, e.g. /console/batches/<id>.
+export interface GetRoute {
+  match: RegExp;
+  render: (session: Session, match: RegExpMatchArray, url: URL) => Promise<PageResult>;
+}
+
+// A POST that changes nothing lasting but needs a larger body (an upload
+// preview). Same-origin + CSRF checked; not an audited action.
+export interface UploadRoute {
+  maxBytes: number;
+  handle: (session: Session, form: URLSearchParams) => Promise<PageResult>;
+}
+
+// What a console feature (batches, review, failed jobs) plugs in.
+export interface ConsoleExtension {
+  // Static scripts/styles the pages load (same origin, so the CSP allows them).
+  assets?: Record<string, { type: string; body: string }>;
+  getRoutes?: GetRoute[];
+  postRoutes?: Record<string, PostRoute>;
+  uploadRoutes?: Record<string, UploadRoute>;
 }
 
 export interface ConsoleDeps {
   audit: AuditLog;
   actions: ActionRunner;
   postRoutes?: Record<string, PostRoute>;
+  extensions?: ConsoleExtension[];
   operators: OperatorStore;
   sessions: SessionStore;
   limiter: LoginLimiter;
@@ -72,7 +102,7 @@ const HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
-  "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
 };
 
 function html(res: http.ServerResponse, status: number, body: string, extra: Record<string, string> = {}): void {
@@ -108,16 +138,24 @@ function clientIp(req: http.IncomingMessage, trustProxy: boolean): string {
   return req.socket.remoteAddress ?? "unknown";
 }
 
-async function readForm(req: http.IncomingMessage): Promise<URLSearchParams | null> {
+// Bodies beyond this are cut off by closing the connection; anything up to
+// it is read (and discarded once over maxBytes) so the client reliably gets
+// the 4xx answer instead of a connection reset mid-upload.
+const DRAIN_LIMIT_BYTES = 16 * 1024 * 1024;
+
+async function readForm(req: http.IncomingMessage, maxBytes = MAX_BODY_BYTES): Promise<URLSearchParams | null> {
   const type = req.headers["content-type"] ?? "";
-  if (!type.startsWith("application/x-www-form-urlencoded")) return null;
   let size = 0;
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     size += (chunk as Buffer).length;
-    if (size > MAX_BODY_BYTES) return null;
-    chunks.push(chunk as Buffer);
+    if (size > DRAIN_LIMIT_BYTES) {
+      req.destroy();
+      return null;
+    }
+    if (size <= maxBytes) chunks.push(chunk as Buffer);
   }
+  if (size > maxBytes || !type.startsWith("application/x-www-form-urlencoded")) return null;
   return new URLSearchParams(Buffer.concat(chunks).toString("utf8"));
 }
 
@@ -147,8 +185,9 @@ function homePage(session: Session): string {
     body: `<div class="card">
   <h1>Welcome, ${esc(session.username)}</h1>
   <p>You're signed in to the Relay console as ${session.role === "engineer" ? "an engineer" : "an analyst"}.</p>
+  <p><a href="/console/batches">Batches</a>: upload a CSV and follow it.</p>
   <p><a href="/console/audit">Audit log</a>: every sign-in and action, who did it and when.</p>
-  <p class="muted">Batches, review and failed jobs arrive in the next releases. Public status stays at <a href="/status">/status</a>.</p>
+  <p class="muted">Review and failed jobs arrive in the next release. Public status stays at <a href="/status">/status</a>.</p>
 </div>`,
   });
 }
@@ -175,6 +214,11 @@ function auditPage(session: Session, entries: Awaited<ReturnType<AuditLog["recen
 
 export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
   const now = deps.now ?? Date.now;
+  const extensions = deps.extensions ?? [];
+  const postRoutes: Record<string, PostRoute> = Object.assign({}, deps.postRoutes, ...extensions.map((e) => e.postRoutes ?? {}));
+  const uploadRoutes: Record<string, UploadRoute> = Object.assign({}, ...extensions.map((e) => e.uploadRoutes ?? {}));
+  const getRoutes: GetRoute[] = extensions.flatMap((e) => e.getRoutes ?? []);
+  const assets: Record<string, { type: string; body: string }> = Object.assign({}, ...extensions.map((e) => e.assets ?? {}));
 
   // For events that must not be blocked by an audit outage (a refused
   // sign-in is refused either way; sign-out always signs out). The audit
@@ -201,7 +245,7 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
   async function login(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     const correlationId = randomUUID();
     const form = await readForm(req);
-    if (!form) return html(res, 400, loginPage("Something was wrong with that request. Please try again."));
+    if (!form) return html(res, 400, loginPage("Something was wrong with that request. Please try again."), { Connection: "close" });
     const username = (form.get("username") ?? "").trim().toLowerCase();
     const pw = form.get("password") ?? "";
     const code = (form.get("code") ?? "").replace(/\s+/g, "");
@@ -275,8 +319,23 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
     if (!session) return isApi ? json(res, 401, { error: "sign in required" }) : redirect(res, "/console/login");
 
     if (req.method === "POST") {
-      const form = await readForm(req);
-      if (!form) return renderResult(res, session, { status: 400, message: "Something was wrong with that request. Please try again." });
+      const upload = uploadRoutes[path];
+      const form = await readForm(req, upload?.maxBytes);
+      if (!form) {
+        // The rest of the body was never read. Close the connection after
+        // this response, or a keep-alive client (or proxy) would send its
+        // next request down a socket still holding unread upload bytes.
+        res.setHeader("Connection", "close");
+        const tooBig = upload ? "That file is too large. The limit is 2 MB." : "Something was wrong with that request. Please try again.";
+        return renderResult(res, session, { status: upload ? 413 : 400, message: tooBig });
+      }
+
+      if (upload) {
+        const integrity = checkIntegrity(req, session, form, deps.trustProxy);
+        if (integrity) return renderResult(res, session, { status: 403, message: "That request couldn't be verified. Reload the page and try again." });
+        const result = await upload.handle(session, form);
+        return html(res, result.status, result.html);
+      }
 
       if (path === "/console/logout") {
         const correlationId = randomUUID();
@@ -291,9 +350,9 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
         return redirect(res, "/console/login", { "Set-Cookie": sessionCookie("", deps.cookieSecure, 0) });
       }
 
-      const route = deps.postRoutes?.[path];
+      const route = postRoutes[path];
       if (route) {
-        const target = route.target(form);
+        const target = await route.target(form, session);
         if (!route.roles.includes(session.role)) {
           await auditQuietly({ operator: session.username, action: route.action, target, outcome: "rejected", correlationId: randomUUID(), detail: `role_${session.role}` });
           return renderResult(res, session, { status: 403, message: "Your role can't do that." });
@@ -303,6 +362,20 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
       }
     }
     if (path === "/console" && req.method === "GET") return html(res, 200, homePage(session));
+    if (req.method === "GET") {
+      const asset = assets[path];
+      if (asset) {
+        res.writeHead(200, { "Content-Type": asset.type, ...HEADERS });
+        return void res.end(asset.body);
+      }
+      for (const route of getRoutes) {
+        const match = path.match(route.match);
+        if (match) {
+          const result = await route.render(session, match, url);
+          return html(res, result.status, result.html);
+        }
+      }
+    }
     if (path === "/console/audit" && req.method === "GET") {
       try {
         const entries = await deps.audit.recent(200, session.role === "engineer" ? undefined : session.username);

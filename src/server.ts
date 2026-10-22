@@ -28,6 +28,9 @@ import { SessionStore } from "./console/auth/sessions.js";
 import { LoginLimiter } from "./console/auth/loginLimiter.js";
 import { AuditLog } from "./console/audit.js";
 import { ActionRunner } from "./console/actions.js";
+import { batchConsole } from "./console/batchPages.js";
+import { BatchStore } from "./console/batches.js";
+import { BatchResults } from "./batchResults.js";
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -97,6 +100,8 @@ async function main(): Promise<void> {
   const consoleHandler = createConsoleHandler({
     audit,
     actions: new ActionRunner(redis, audit, trustProxy),
+    // STORY-104: batch upload, preview and submit.
+    extensions: [batchConsole({ store: new BatchStore(redis), results: new BatchResults(redis), queue })],
     operators: new OperatorStore(redis),
     sessions: new SessionStore(redis),
     limiter: new LoginLimiter(redis),
