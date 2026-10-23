@@ -118,7 +118,7 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
-const STATE_LABEL: Record<StatusState, string> = { ok: "Running normally", attention: "Needs attention", down: "Not working", unknown: "Unknown" };
+export const STATE_LABEL: Record<StatusState, string> = { ok: "Running normally", attention: "Needs attention", down: "Not working", unknown: "Unknown" };
 
 export function renderStatusHtml(report: StatusReport): string {
   return `<!doctype html>

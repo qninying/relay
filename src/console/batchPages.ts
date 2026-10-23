@@ -72,7 +72,7 @@ function newBatchPage(session: Session, retentionDays: number, message?: string)
     <p id="file-note" class="muted" aria-live="polite"></p>
     <input type="hidden" id="filename" name="filename" value="">
     <label for="csv">Or paste the CSV here</label>
-    <textarea id="csv" name="csv" rows="10" required spellcheck="false" style="width:100%;font:13px/1.4 ui-monospace,monospace;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)">text,id\n</textarea>
+    <textarea id="csv" name="csv" rows="10" required spellcheck="false" style="width:100%;font:13px/1.4 ui-monospace,monospace;padding:10px;border:1px solid var(--field-border);border-radius:8px;background:var(--bg);color:var(--text)">text,id\n</textarea>
     <button class="full" type="submit">Check the file</button>
   </form>
   <script src="/console/assets/upload.js"></script>`

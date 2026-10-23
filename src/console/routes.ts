@@ -143,7 +143,8 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
 
   function renderResult(res: http.ServerResponse, session: Session, result: ActionResult): void {
     if (result.location) return redirect(res, result.location);
-    return html(res, result.status, page({ title: "Relay Console", session, body: `<div class="card"><p role="alert">${esc(result.message ?? "")}</p><p><a href="/console">Back to the console</a></p></div>` }));
+    const heading = result.status < 400 ? "Done" : "That didn't go through";
+    return html(res, result.status, page({ title: `${heading} | Relay Console`, session, body: `<div class="card"><h1>${esc(heading)}</h1><p role="alert">${esc(result.message ?? "")}</p><p><a href="/console">Back to the console</a></p></div>` }));
   }
 
   async function login(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -266,7 +267,6 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
         return renderResult(res, session, result);
       }
     }
-    if (path === "/console" && req.method === "GET") return html(res, 200, homePage(session));
     if (req.method === "GET") {
       const asset = assets[path];
       if (asset) {
@@ -280,6 +280,8 @@ export function createConsoleHandler(deps: ConsoleDeps): ConsoleHandler {
           return html(res, result.status, result.html);
         }
       }
+      // The plain home page, unless an extension (the overview) provides one.
+      if (path === "/console") return html(res, 200, homePage(session));
       for (const route of apiRoutes) {
         const match = path.match(route.match);
         if (match) {

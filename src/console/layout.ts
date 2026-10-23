@@ -11,8 +11,8 @@ export function esc(text: string): string {
 }
 
 const STYLE = `
-  :root { --bg:#f6f6f3; --surface:#ffffff; --text:#1c1c1a; --muted:#5d5d58; --border:#e2e2dc; --accent:#1f5f8b; --accent-text:#ffffff; --danger:#b3261e; --ok:#1f7a4d; --focus:#1f5f8b; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#141413; --surface:#1e1e1c; --text:#ececea; --muted:#a6a6a0; --border:#34342f; --accent:#7cb7e0; --accent-text:#0d1b26; --danger:#ff8a80; --ok:#6cc893; --focus:#7cb7e0; } }
+  :root { --bg:#f6f6f3; --surface:#ffffff; --text:#1c1c1a; --muted:#5d5d58; --border:#e2e2dc; --field-border:#7d7d77; --accent:#1f5f8b; --accent-text:#ffffff; --danger:#b3261e; --ok:#1f7a4d; --attention:#8a4f00; --focus:#1f5f8b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141413; --surface:#1e1e1c; --text:#ececea; --muted:#a6a6a0; --border:#34342f; --field-border:#7a7a74; --accent:#7cb7e0; --accent-text:#0d1b26; --danger:#ff8a80; --ok:#6cc893; --attention:#f0a64a; --focus:#7cb7e0; } }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; background:var(--surface); border-bottom:1px solid var(--border); flex-wrap:wrap; }
@@ -23,7 +23,8 @@ const STYLE = `
   .narrow { max-width:400px; margin:48px auto 0; }
   h1 { font-size:22px; margin:0 0 16px; }
   label { display:block; font-weight:600; font-size:14px; margin:16px 0 6px; }
-  input { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); }
+  /* Field borders use --field-border: 3:1 against the page (WCAG 1.4.11); --border is for dividers only. */
+  input { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--field-border); border-radius:8px; background:var(--bg); color:var(--text); }
   button { font:inherit; font-weight:600; padding:10px 16px; border-radius:8px; border:1px solid transparent; background:var(--accent); color:var(--accent-text); cursor:pointer; }
   button.link { background:none; color:var(--accent); padding:0; border:0; font-weight:500; text-decoration:underline; }
   .full { width:100%; margin-top:20px; }
@@ -31,10 +32,35 @@ const STYLE = `
   .error { color:var(--danger); background:color-mix(in srgb, var(--danger) 10%, transparent); border-radius:8px; padding:10px 12px; margin:0 0 8px; }
   .muted { color:var(--muted); }
   table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; overflow-wrap:anywhere; }
+  a { color:var(--accent); }
+  nav.site { display:flex; flex-wrap:wrap; gap:4px 16px; padding:8px 16px; background:var(--surface); border-bottom:1px solid var(--border); font-size:15px; }
+  .state { display:inline-flex; align-items:center; gap:8px; font-weight:700; margin:0 0 8px; }
+  .state-symbol { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; color:var(--surface); font-size:14px; }
+  .state-ok .state-symbol { background:var(--ok); } .state-attention .state-symbol { background:var(--attention); } .state-down .state-symbol { background:var(--danger); } .state-unknown .state-symbol { background:var(--muted); }
+  .chart { display:block; max-width:100%; height:auto; }
+  .chart .line { fill:none; stroke:var(--accent); stroke-width:2; }
+  .chart .line-dot { fill:var(--accent); }
+  .chart .gap { fill:var(--muted); opacity:.18; }
+  .chart .grid { stroke:var(--border); }
+  .chart .axis { fill:var(--muted); font-size:12px; }
+  details summary { cursor:pointer; color:var(--accent); }
   th { color:var(--muted); font-weight:600; }
   form.inline { display:inline; margin:0; }
 `;
+
+const NAV: Array<[string, string]> = [
+  ["/console", "Overview"],
+  ["/console/batches", "Batches"],
+  ["/console/review", "Review"],
+  ["/console/failed", "Failed jobs"],
+  ["/console/audit", "Audit log"],
+];
+
+// Links to every screen, on every signed-in page.
+function siteNav(): string {
+  return `<nav class="site" aria-label="Console">${NAV.map(([href, label]) => `<a href="${href}">${label}</a>`).join("")}</nav>`;
+}
 
 export interface PageOptions {
   title: string;
@@ -57,6 +83,7 @@ export function page({ title, body, session }: PageOptions): string {
 </head>
 <body>
 <header><span class="brand">Relay Console</span>${who}</header>
+${session ? siteNav() : ""}
 <main>
 ${body}
 </main>

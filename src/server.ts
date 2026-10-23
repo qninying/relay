@@ -34,6 +34,7 @@ import { BatchResults } from "./batchResults.js";
 import { batchRetentionDaysFromEnv } from "./batchRetention.js";
 import { reviewConsole } from "./console/reviewPages.js";
 import { failedConsole } from "./console/failedPages.js";
+import { overviewConsole } from "./console/overview.js";
 import { FailedJobs } from "./console/failedJobs.js";
 import { ReviewItems } from "./console/reviewItems.js";
 import { cachedTaxonomy } from "./classifyJob.js";
@@ -112,6 +113,8 @@ async function main(): Promise<void> {
     // STORY-106: review decisions. STORY-107: failed jobs (the DLQ; see
     // failedJobs.ts for why it reads the DLQ directly).
     extensions: [
+      // STORY-108: the console home is the overview (status + 24h charts).
+      overviewConsole({ latest: () => sampler.latest(), history: (since) => sampler.history(since), sampleIntervalMs, targetSuccessRate }),
       batchConsole({ store: new BatchStore(redis, undefined, retentionDays), results: batchResults, queue, audit }),
       reviewConsole({ items: new ReviewItems(redis, reviewStream), results: batchResults, audit, getTaxonomy: cachedTaxonomy() }),
       failedConsole({

@@ -19,6 +19,8 @@ export interface TestConsole {
   close: () => Promise<void>;
   get: (path: string, who?: string) => Promise<Response>;
   post: (path: string, fields: Record<string, string>, who?: string, headers?: Record<string, string>) => Promise<Response>;
+  // The session cookie value for an operator (e.g. to give a browser).
+  sessionId: (who: string) => string;
   // csrf + a fresh idem key, read from a rendered page's form.
   formFields: (path: string, who?: string) => Promise<{ csrf: string; idem: string }>;
 }
@@ -60,6 +62,7 @@ export async function startConsole(redis: Redis, prefix: string, audit: AuditLog
   return {
     url,
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    sessionId: (who) => cookies[who].split("=")[1],
     get,
     post: (path, fields, who = first, headers = { origin: url }) =>
       fetch(`${url}${path}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", cookie: cookies[who], ...headers }, body: new URLSearchParams(fields).toString(), redirect: "manual" }),

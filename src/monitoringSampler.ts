@@ -127,7 +127,10 @@ export class MonitoringSampler {
     }
   }
 
-  async history(sinceMs: number, limit = 2000): Promise<MetricsSample[]> {
+  // Up to `limit` samples from sinceMs, oldest first. The default covers the
+  // whole kept history (~7 days at one a minute), so a week's view isn't
+  // silently cut to its oldest part.
+  async history(sinceMs: number, limit = this.deps.maxSamples ?? 10_080): Promise<MetricsSample[]> {
     const entries = (await this.deps.redis.xrange(this.historyKey, String(sinceMs), "+", "COUNT", limit)) as [string, string[]][];
     return entries.map(([, fields]) => JSON.parse(fields[fields.indexOf("sample") + 1]) as MetricsSample);
   }

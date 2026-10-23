@@ -107,7 +107,7 @@ export function failedConsole(deps: FailedConsoleDeps): ConsoleExtension {
           }
   <form method="post" action="/console/failed/discard">${actionFields(session)}<input type="hidden" name="entry" value="${esc(job.messageId)}">
     <label for="note">Why discard it? (required)</label>
-    <textarea id="note" name="note" rows="3" required maxlength="${MAX_DISCARD_NOTE}" style="width:100%;font:inherit;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)"></textarea>
+    <textarea id="note" name="note" rows="3" required maxlength="${MAX_DISCARD_NOTE}" style="width:100%;font:inherit;padding:10px;border:1px solid var(--field-border);border-radius:8px;background:var(--bg);color:var(--text)"></textarea>
     <button class="full" type="submit" style="background:var(--danger)">Discard this job</button>
   </form>`;
     return {

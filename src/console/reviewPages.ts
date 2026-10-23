@@ -141,9 +141,9 @@ export function reviewConsole(deps: ReviewConsoleDeps): ConsoleExtension {
     ${actionFields(session)}
     <input type="hidden" name="entry" value="${esc(item.messageId)}">
     <label for="label">Correct label</label>
-    <select id="label" name="label" style="width:100%;font:inherit;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)">${options}</select>
+    <select id="label" name="label" style="width:100%;font:inherit;padding:10px 12px;border:1px solid var(--field-border);border-radius:8px;background:var(--bg);color:var(--text)">${options}</select>
     <label for="note">Note (required to reject)</label>
-    <textarea id="note" name="note" rows="3" maxlength="${MAX_NOTE_CHARS}" style="width:100%;font:inherit;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)"></textarea>
+    <textarea id="note" name="note" rows="3" maxlength="${MAX_NOTE_CHARS}" style="width:100%;font:inherit;padding:10px;border:1px solid var(--field-border);border-radius:8px;background:var(--bg);color:var(--text)"></textarea>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px">
       <button type="submit" name="decision" value="approve">Approve "${esc(b.label)}"</button>
       <button type="submit" name="decision" value="correct">Save the correct label</button>

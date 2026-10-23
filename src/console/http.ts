@@ -18,7 +18,11 @@ export interface Download {
 export const HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "no-referrer",
+  // same-origin, not no-referrer: under no-referrer browsers send
+  // "Origin: null" on form posts, which the same-origin check (actions.ts)
+  // rightly refuses, so every console form failed in a real browser. Other
+  // sites still get no referrer.
+  "Referrer-Policy": "same-origin",
   "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
 };
 
